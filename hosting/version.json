@@ -1,0 +1,5 @@
+{
+  "version": "0.1.0",
+  "apkUrl": "/app-release.apk",
+  "releaseNotes": "Initial release with paper tracking, collaboration, and dashboard"
+}

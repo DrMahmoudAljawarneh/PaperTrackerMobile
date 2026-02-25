@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paper Tracker — Download</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0e1a;
+            color: #e8e8e8;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            text-align: center;
+            padding: 40px 24px;
+            max-width: 480px;
+        }
+        .icon {
+            width: 96px; height: 96px;
+            background: linear-gradient(135deg, #6C63FF 0%, #4ECDC4 100%);
+            border-radius: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 28px;
+            box-shadow: 0 12px 40px rgba(108, 99, 255, 0.3);
+        }
+        .icon svg { width: 48px; height: 48px; fill: white; }
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #fff 0%, #a5a0ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            font-size: 16px;
+            color: #8b8fa3;
+            margin-bottom: 36px;
+            line-height: 1.5;
+        }
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #6C63FF 0%, #5a52e0 100%);
+            color: white;
+            text-decoration: none;
+            padding: 16px 36px;
+            border-radius: 14px;
+            font-size: 17px;
+            font-weight: 600;
+            transition: all 0.2s;
+            box-shadow: 0 6px 24px rgba(108, 99, 255, 0.4);
+        }
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 32px rgba(108, 99, 255, 0.5);
+        }
+        .download-btn svg { width: 22px; height: 22px; fill: white; }
+        .version {
+            margin-top: 20px;
+            font-size: 13px;
+            color: #555a6e;
+        }
+        .features {
+            margin-top: 48px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            text-align: left;
+        }
+        .feature {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 16px;
+        }
+        .feature .emoji { font-size: 24px; margin-bottom: 8px; }
+        .feature .name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+        .feature .desc { font-size: 12px; color: #8b8fa3; line-height: 1.4; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zm-3 3h4v2h-4v-2zm6 4H8v-2h8v2zm0 4H8v-2h8v2z"/></svg>
+        </div>
+        <h1>Paper Tracker</h1>
+        <p class="subtitle">Track your research papers, collaborate with your team, and never miss a deadline.</p>
+
+        <a href="/app-release.apk" class="download-btn" id="downloadBtn">
+            <svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zm7-18L5.33 9h3.17v4h5V9h3.17L12 2z" transform="rotate(180 12 12)"/></svg>
+            Download APK
+        </a>
+        <p class="version" id="versionText">Loading version...</p>
+
+        <div class="features">
+            <div class="feature">
+                <div class="emoji">📝</div>
+                <div class="name">Track Papers</div>
+                <div class="desc">Manage your research from idea to publication</div>
+            </div>
+            <div class="feature">
+                <div class="emoji">👥</div>
+                <div class="name">Collaborate</div>
+                <div class="desc">Add co-authors and work together in real-time</div>
+            </div>
+            <div class="feature">
+                <div class="emoji">⏰</div>
+                <div class="name">Deadlines</div>
+                <div class="desc">Never miss a conference or journal deadline</div>
+            </div>
+            <div class="feature">
+                <div class="emoji">📊</div>
+                <div class="name">Dashboard</div>
+                <div class="desc">Overview of all papers, status, and progress</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        fetch('/version.json')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('versionText').textContent =
+                    `Version ${data.version} • ${data.releaseNotes || ''}`;
+            })
+            .catch(() => {
+                document.getElementById('versionText').textContent = '';
+            });
+    </script>
+</body>
+</html>
