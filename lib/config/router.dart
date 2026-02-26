@@ -8,6 +8,8 @@ import 'package:paper_tracker/screens/dashboard/dashboard_screen.dart';
 import 'package:paper_tracker/screens/papers/papers_list_screen.dart';
 import 'package:paper_tracker/screens/papers/add_edit_paper_screen.dart';
 import 'package:paper_tracker/screens/paper_detail/paper_detail_screen.dart';
+import 'package:paper_tracker/screens/chat/chat_list_screen.dart';
+import 'package:paper_tracker/screens/chat/chat_detail_screen.dart';
 import 'package:paper_tracker/screens/shell_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -53,6 +55,10 @@ GoRouter createRouter(AuthBloc authBloc) {
             path: '/papers',
             builder: (context, state) => const PapersListScreen(),
           ),
+          GoRoute(
+            path: '/chats',
+            builder: (context, state) => const ChatListScreen(),
+          ),
         ],
       ),
       GoRoute(
@@ -74,6 +80,14 @@ GoRouter createRouter(AuthBloc authBloc) {
         builder: (context, state) {
           final paperId = state.pathParameters['id']!;
           return PaperDetailScreen(paperId: paperId);
+        },
+      ),
+      GoRoute(
+        path: '/chat/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final chatId = state.pathParameters['id']!;
+          return ChatDetailScreen(chatId: chatId);
         },
       ),
     ],

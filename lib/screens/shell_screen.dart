@@ -35,6 +35,11 @@ class ShellScreen extends StatelessWidget {
               activeIcon: Icon(Icons.article_rounded),
               label: 'Papers',
             ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.chat_bubble_outline),
+              activeIcon: Icon(Icons.chat_bubble),
+              label: 'Chats',
+            ),
           ],
         ),
       ),
@@ -44,6 +49,7 @@ class ShellScreen extends StatelessWidget {
   int _calculateSelectedIndex(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
     if (location.startsWith('/papers')) return 1;
+    if (location.startsWith('/chats') || location.startsWith('/chat')) return 2;
     return 0;
   }
 
@@ -54,6 +60,9 @@ class ShellScreen extends StatelessWidget {
         break;
       case 1:
         context.go('/papers');
+        break;
+      case 2:
+        context.go('/chats');
         break;
     }
   }

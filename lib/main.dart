@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:paper_tracker/app.dart';
@@ -11,9 +12,11 @@ void main() async {
   );
   
   // Initialize flutter_downloader for foreground background downloads
-  await FlutterDownloader.initialize(
-    debug: true, // set to false to disable printing logs to console
-    ignoreSsl: true, // option: set to false to disable working with http links
-  );
+  if (!kIsWeb) {
+    await FlutterDownloader.initialize(
+      debug: true, // set to false to disable printing logs to console
+      ignoreSsl: true, // option: set to false to disable working with http links
+    );
+  }
   runApp(const PaperTrackerApp());
 }

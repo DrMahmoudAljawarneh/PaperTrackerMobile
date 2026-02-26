@@ -11,6 +11,9 @@ import 'package:paper_tracker/repositories/auth_repository.dart';
 import 'package:paper_tracker/repositories/comment_repository.dart';
 import 'package:paper_tracker/repositories/paper_repository.dart';
 import 'package:paper_tracker/repositories/task_repository.dart';
+import 'package:paper_tracker/repositories/chat_repository.dart';
+import 'package:paper_tracker/blocs/chat_list/chat_list_bloc.dart';
+import 'package:paper_tracker/blocs/chat_detail/chat_detail_bloc.dart';
 
 class PaperTrackerApp extends StatelessWidget {
   const PaperTrackerApp({super.key});
@@ -22,6 +25,7 @@ class PaperTrackerApp extends StatelessWidget {
     final paperRepository = PaperRepository();
     final taskRepository = TaskRepository();
     final commentRepository = CommentRepository();
+    final chatRepository = ChatRepository();
 
     return MultiRepositoryProvider(
       providers: [
@@ -29,6 +33,7 @@ class PaperTrackerApp extends StatelessWidget {
         RepositoryProvider.value(value: paperRepository),
         RepositoryProvider.value(value: taskRepository),
         RepositoryProvider.value(value: commentRepository),
+        RepositoryProvider.value(value: chatRepository),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -44,6 +49,12 @@ class PaperTrackerApp extends StatelessWidget {
           ),
           BlocProvider(
             create: (_) => DashboardBloc(paperRepository: paperRepository),
+          ),
+          BlocProvider(
+            create: (_) => ChatListBloc(chatRepository: chatRepository),
+          ),
+          BlocProvider(
+            create: (_) => ChatDetailBloc(chatRepository: chatRepository),
           ),
         ],
         child: Builder(
