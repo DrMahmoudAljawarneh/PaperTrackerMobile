@@ -4,12 +4,16 @@ Paper Tracker is a cross-platform Flutter application designed to help researche
 
 ## Features
 
-- **Authentication & User Profiles:** Secure email/password login using Firebase Authentication.
+- **Authentication & User Profiles:** Secure email/password login using Firebase Authentication. Editable display name with dedicated profile screen.
 - **Paper Management:** Add, edit, and track the status of academic papers (Idea, Drafting, Review, Submitted, Published, etc.).
+- **Advanced Search & Filtering:** Filter papers by status and priority, sort by date/title/priority/deadline, and search across titles, venues, and tags.
 - **Task Tracking:** Assign and track tasks related to specific papers.
 - **Real-time Comments:** Leave comments on papers for collaborators to see.
 - **Collaborator Management:** Assign multiple authors/collaborators to papers so everyone stays in sync.
+- **Real-time Notifications:** Local push notifications for collaborator additions, new comments, task assignments, and task completions. In-app notification center with unread badge.
 - **Real-time User Chat:** Built-in direct messaging system between users, powered by Firebase Realtime Database.
+- **Enhanced Dashboard:** Visual paper pipeline distribution, papers needing attention (overdue/revision/rejected), gradient stat cards, and quick-action shortcuts.
+- **User Profile & Settings:** View account info, edit display name, see paper stats, and sign out — all from a dedicated profile screen.
 - **Cross-Platform:** Supports Android, iOS, and Web.
 
 ## Technology Stack
