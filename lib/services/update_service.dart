@@ -19,7 +19,7 @@ class UpdateService {
       final data = json.decode(response.body) as Map<String, dynamic>;
       final remoteVersion = data['version'] as String? ?? '';
       final releaseNotes = data['releaseNotes'] as String? ?? '';
-      final apkPath = data['apkUrl'] as String? ?? '/app-release.apk';
+      final apkUrl = data['apkUrl'] as String? ?? '';
 
       final packageInfo = await PackageInfo.fromPlatform();
       final localVersion = packageInfo.version;
@@ -30,7 +30,7 @@ class UpdateService {
           context,
           remoteVersion: remoteVersion,
           releaseNotes: releaseNotes,
-          downloadUrl: '$_baseUrl$apkPath',
+          downloadUrl: apkUrl,
         );
       }
     } catch (e) {
