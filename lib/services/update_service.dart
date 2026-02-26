@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_downloader/flutter_downloader.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class UpdateService {
   // TODO: Replace with your actual Firebase Hosting URL after first deploy
-  static const String _baseUrl = 'https://papertracker-99036.web.app';
+  static const String _baseUrl = 'https://papercheck-2026.web.app';
   static const String _versionUrl = '$_baseUrl/version.json';
 
   /// Check for app updates and show dialog if available.
@@ -98,10 +100,7 @@ class UpdateService {
           FilledButton.icon(
             onPressed: () {
               Navigator.of(ctx).pop();
-              launchUrl(
-                Uri.parse(downloadUrl),
-                mode: LaunchMode.externalApplication,
-              );
+              _startDownload(downloadUrl);
             },
             icon: const Icon(Icons.download, size: 18),
             label: const Text('Download'),
@@ -109,5 +108,29 @@ class UpdateService {
         ],
       ),
     );
+  }
+
+  static Future<void> _startDownload(String url) async {
+    try {
+      // Request notification permission to show the progress bar (required on Android 13+)
+      await Permission.notification.request();
+
+      // Get external storage directory for the download
+      final directory = await getExternalStorageDirectory();
+      if (directory == null) return;
+
+      final taskId = await FlutterDownloader.enqueue(
+        url: url,
+        savedDir: directory.path,
+        fileName: 'paper-tracker-update.apk',
+        showNotification: true, // show download progress in status bar
+        openFileFromNotification: true, // click on notification to open the downloaded file (install APK)
+        saveInPublicStorage: true, // move to public Downloads folder so package installer can read it
+      );
+      
+      debugPrint('Update download started with taskId: $taskId');
+    } catch (e) {
+      debugPrint('Failed to start download: $e');
+    }
   }
 }

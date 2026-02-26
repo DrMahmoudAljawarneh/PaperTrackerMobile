@@ -1,34 +1,41 @@
 # Paper Tracker — Deployment Guide
 
-## Prerequisites
+## Architecture
 
-1. **Firebase CLI** installed and authenticated:
-   ```powershell
-   npm install -g firebase-tools
-   firebase login
-   ```
-2. **Flutter SDK** configured with Android build tools
-3. **Java 17** for Android builds
+```
+Firebase Hosting (free)  →  Landing page + version.json
+GitHub Releases  (free)  →  APK file downloads
+In-app checker           →  Fetches version.json, prompts user to update
+```
 
 ---
 
 ## Quick Deploy
 
-Run the deploy script from the project root:
-
 ```powershell
-# Deploy with current version
-.\deploy.ps1
-
 # Deploy with a version bump
 .\deploy.ps1 -Version "0.2.0"
+
+# Deploy with current version
+.\deploy.ps1
 ```
 
-This will:
-1. Build the release APK (`flutter build apk --release`)
-2. Copy the APK to `hosting/app-release.apk`
-3. Update `hosting/version.json` and `pubspec.yaml` (if `-Version` is provided)
-4. Deploy to Firebase Hosting (`firebase deploy --only hosting`)
+The script will:
+1. Update `hosting/version.json` and `pubspec.yaml` (if `-Version` provided)
+2. Build the release APK
+3. Commit and push to GitHub
+4. Create a GitHub Release with the APK attached
+5. Deploy the landing page to Firebase Hosting
+
+---
+
+## Links
+
+| Resource | URL |
+|---|---|
+| **Landing Page** | https://papercheck-2026.web.app |
+| **GitHub Repo** | https://github.com/DrMahmoudAljawarneh/PaperTrackerMobile |
+| **Latest Release** | https://github.com/DrMahmoudAljawarneh/PaperTrackerMobile/releases |
 
 ---
 
@@ -40,7 +47,7 @@ Edit `hosting/version.json`:
 ```json
 {
   "version": "0.2.0",
-  "apkUrl": "/app-release.apk",
+  "apkUrl": "https://github.com/DrMahmoudAljawarneh/PaperTrackerMobile/releases/download/v0.2.0/app-release.apk",
   "releaseNotes": "Added collaboration feature and bug fixes"
 }
 ```
@@ -56,17 +63,24 @@ version: 0.2.0
 flutter build apk --release
 ```
 
-The APK will be at: `build\app\outputs\flutter-apk\app-release.apk`
-
-### 3. Copy APK to Hosting
+### 3. Commit and Push
 
 ```powershell
-Copy-Item build\app\outputs\flutter-apk\app-release.apk hosting\app-release.apk
+git add .
+git commit -m "Release v0.2.0"
+git push origin master
 ```
 
-### 4. Deploy to Firebase
+### 4. Create GitHub Release
 
 ```powershell
+gh release create v0.2.0 build\app\outputs\flutter-apk\app-release.apk --title "v0.2.0" --notes "Release notes here"
+```
+
+### 5. Deploy Landing Page
+
+```powershell
+firebase use papercheck-2026
 firebase deploy --only hosting
 ```
 
@@ -76,19 +90,19 @@ firebase deploy --only hosting
 
 ```
 App opens → Dashboard loads
-                ↓
-    Fetches version.json from Firebase Hosting
-                ↓
-    Compares remote version vs local version
-                ↓
-    If remote > local → Shows update dialog
-                ↓
-    User taps "Download" → Opens APK download URL
+        ↓
+Fetches version.json from Firebase Hosting
+        ↓
+Compares remote version vs local app version
+        ↓
+If remote > local → Shows "Update Available" dialog
+        ↓
+User taps "Download" → Opens GitHub Release APK URL
 ```
 
-- The update check runs every time the dashboard loads
-- `version.json` is served with `no-cache` headers so the app always gets the latest version
-- The version comparison is semantic (e.g., `0.2.0 > 0.1.0`)
+- The check runs every time the dashboard loads
+- `version.json` has `no-cache` headers so the app always gets the latest
+- Version comparison is semantic (e.g., `0.2.0 > 0.1.0`)
 
 ---
 
@@ -96,35 +110,22 @@ App opens → Dashboard loads
 
 ```
 hosting/
-├── index.html          ← Landing page (download button)
-├── version.json        ← Version manifest
-└── app-release.apk     ← Built APK (created by deploy script)
+├── index.html          ← Landing page with download button
+└── version.json        ← Version manifest (points to GitHub Release)
 
 lib/services/
 └── update_service.dart ← In-app update checker
 
-deploy.ps1              ← One-command deploy script
-firebase.json           ← Firebase Hosting configuration
+deploy.ps1              ← One-command build + deploy script
+firebase.json           ← Firebase Hosting config
 ```
-
----
-
-## Configuration
-
-The Firebase Hosting URL is set in `lib/services/update_service.dart`:
-```dart
-static const String _baseUrl = 'https://papertracker-99036.web.app';
-```
-
-If your Firebase project has a custom domain, update this URL.
 
 ---
 
 ## Pushing a New Update (Checklist)
 
 1. ✅ Make your code changes
-2. ✅ Pick a new version number (semantic: `MAJOR.MINOR.PATCH`)
-3. ✅ Write release notes for `version.json`
-4. ✅ Run `.\deploy.ps1 -Version "X.Y.Z"`
-5. ✅ Verify at https://papertracker-99036.web.app
-6. ✅ Existing users will see the update dialog on next app open
+2. ✅ Write release notes in `hosting/version.json`
+3. ✅ Run `.\deploy.ps1 -Version "X.Y.Z"`
+4. ✅ Verify at https://papercheck-2026.web.app
+5. ✅ Existing users see the update dialog on next app open

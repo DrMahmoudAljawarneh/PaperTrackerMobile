@@ -76,7 +76,7 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host "`n✅ Deploy complete!" -ForegroundColor Green
 Write-Host "   Version:  $currentVersion"
-Write-Host "   Landing:  https://papertracker-99036.web.app"
+Write-Host "   Landing:  https://papercheck-2026.web.app"
 Write-Host "   Release:  https://github.com/DrMahmoudAljawarneh/PaperTrackerMobile/releases/tag/v$currentVersion"
 Write-Host "   APK:      https://github.com/DrMahmoudAljawarneh/PaperTrackerMobile/releases/download/v$currentVersion/app-release.apk"
 Write-Host ""
