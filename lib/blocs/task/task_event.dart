@@ -19,21 +19,53 @@ class TasksLoadRequested extends TaskEvent {
 
 class TaskCreateRequested extends TaskEvent {
   final PaperTask task;
+  final String? currentUserId;
+  final String? currentUserName;
+  final String? paperTitle;
 
-  const TaskCreateRequested(this.task);
+  const TaskCreateRequested(
+    this.task, {
+    this.currentUserId,
+    this.currentUserName,
+    this.paperTitle,
+  });
 
   @override
-  List<Object?> get props => [task];
+  List<Object?> get props => [task, currentUserId, currentUserName, paperTitle];
 }
 
 class TaskToggleRequested extends TaskEvent {
   final String taskId;
   final bool completed;
+  final String? currentUserId;
+  final String? currentUserName;
+  final String? paperTitle;
+  final String? paperId;
+  final String? taskTitle;
+  final String? assigneeId;
 
-  const TaskToggleRequested({required this.taskId, required this.completed});
+  const TaskToggleRequested({
+    required this.taskId,
+    required this.completed,
+    this.currentUserId,
+    this.currentUserName,
+    this.paperTitle,
+    this.paperId,
+    this.taskTitle,
+    this.assigneeId,
+  });
 
   @override
-  List<Object?> get props => [taskId, completed];
+  List<Object?> get props => [
+        taskId,
+        completed,
+        currentUserId,
+        currentUserName,
+        paperTitle,
+        paperId,
+        taskTitle,
+        assigneeId,
+      ];
 }
 
 class TaskDeleteRequested extends TaskEvent {

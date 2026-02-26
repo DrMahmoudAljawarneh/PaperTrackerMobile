@@ -44,7 +44,12 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
     Emitter<TaskState> emit,
   ) async {
     try {
-      await _taskRepository.createTask(event.task);
+      await _taskRepository.createTask(
+        event.task,
+        currentUserId: event.currentUserId,
+        currentUserName: event.currentUserName,
+        paperTitle: event.paperTitle,
+      );
     } catch (e) {
       emit(TaskError(e.toString()));
     }
@@ -55,7 +60,16 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
     Emitter<TaskState> emit,
   ) async {
     try {
-      await _taskRepository.toggleTask(event.taskId, event.completed);
+      await _taskRepository.toggleTask(
+        event.taskId,
+        event.completed,
+        currentUserId: event.currentUserId,
+        currentUserName: event.currentUserName,
+        paperTitle: event.paperTitle,
+        paperId: event.paperId,
+        taskTitle: event.taskTitle,
+        assigneeId: event.assigneeId,
+      );
     } catch (e) {
       emit(TaskError(e.toString()));
     }

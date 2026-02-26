@@ -1,5 +1,5 @@
 {
-  "version": "0.3.0",
-  "apkUrl": "https://github.com/DrMahmoudAljawarneh/PaperTrackerMobile/releases/download/v0.3.0/app-release.apk",
+  "version": "0.4.0",
+  "apkUrl": "https://github.com/DrMahmoudAljawarneh/PaperTrackerMobile/releases/download/v0.4.0/app-release.apk",
   "releaseNotes": "Initial release with paper tracking, collaboration, and dashboard"
 }

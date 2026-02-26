@@ -19,6 +19,10 @@ class DashboardLoaded extends DashboardState {
   final int publishedPapers;
   final List<Paper> upcomingDeadlines;
   final List<Paper> recentPapers;
+  final Map<PaperStatus, int> statusDistribution;
+  final int totalTasks;
+  final int completedTasks;
+  final List<Paper> papersNeedingAttention;
 
   const DashboardLoaded({
     required this.totalPapers,
@@ -27,6 +31,10 @@ class DashboardLoaded extends DashboardState {
     required this.publishedPapers,
     required this.upcomingDeadlines,
     required this.recentPapers,
+    this.statusDistribution = const {},
+    this.totalTasks = 0,
+    this.completedTasks = 0,
+    this.papersNeedingAttention = const [],
   });
 
   @override
@@ -37,6 +45,10 @@ class DashboardLoaded extends DashboardState {
         publishedPapers,
         upcomingDeadlines,
         recentPapers,
+        statusDistribution,
+        totalTasks,
+        completedTasks,
+        papersNeedingAttention,
       ];
 }
 
@@ -48,3 +60,4 @@ class DashboardError extends DashboardState {
   @override
   List<Object?> get props => [message];
 }
+

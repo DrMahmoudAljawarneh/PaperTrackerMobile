@@ -1,11 +1,17 @@
 import 'package:firebase_database/firebase_database.dart';
+import 'package:paper_tracker/models/notification_model.dart';
 import 'package:paper_tracker/models/paper.dart';
+import 'package:paper_tracker/repositories/notification_repository.dart';
 
 class PaperRepository {
   final FirebaseDatabase _db;
+  final NotificationRepository? _notificationRepository;
 
-  PaperRepository({FirebaseDatabase? db})
-      : _db = db ?? FirebaseDatabase.instance;
+  PaperRepository({
+    FirebaseDatabase? db,
+    NotificationRepository? notificationRepository,
+  })  : _db = db ?? FirebaseDatabase.instance,
+        _notificationRepository = notificationRepository;
 
   DatabaseReference get _papersRef => _db.ref('papers');
 
@@ -69,8 +75,13 @@ class PaperRepository {
     return paperId;
   }
 
-  /// Update an existing paper and sync the papersByUser index
-  Future<void> updatePaper(Paper paper) async {
+  /// Update an existing paper and sync the papersByUser index.
+  /// Pass [currentUserId] and [currentUserName] to notify newly added collaborators.
+  Future<void> updatePaper(
+    Paper paper, {
+    String? currentUserId,
+    String? currentUserName,
+  }) async {
     // Get the old authorIds before updating
     final oldSnapshot = await _papersRef.child(paper.id).get();
     List<String> oldAuthorIds = [];
@@ -83,7 +94,7 @@ class PaperRepository {
 
     // Sync papersByUser index: add new collaborators, remove old ones
     final newAuthorIds = paper.authorIds;
-    final added = newAuthorIds.where((id) => !oldAuthorIds.contains(id));
+    final added = newAuthorIds.where((id) => !oldAuthorIds.contains(id)).toList();
     final removed = oldAuthorIds.where((id) => !newAuthorIds.contains(id));
 
     final updates = <String, dynamic>{};
@@ -95,6 +106,21 @@ class PaperRepository {
     }
     if (updates.isNotEmpty) {
       await _db.ref().update(updates);
+    }
+
+    // Notify newly added collaborators
+    if (added.isNotEmpty &&
+        _notificationRepository != null &&
+        currentUserId != null) {
+      await _notificationRepository!.pushNotificationToMany(
+        recipientIds: added,
+        senderId: currentUserId,
+        senderName: currentUserName ?? '',
+        title: 'Added to Paper',
+        message: 'You were added as a collaborator on "${paper.title}"',
+        type: NotificationType.collaboratorAdded,
+        relatedPaperId: paper.id,
+      );
     }
   }
 
@@ -151,3 +177,4 @@ class PaperRepository {
     });
   }
 }
+

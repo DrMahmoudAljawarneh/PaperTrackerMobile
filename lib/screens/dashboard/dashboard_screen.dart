@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:paper_tracker/blocs/auth/auth_bloc.dart';
-import 'package:paper_tracker/blocs/auth/auth_event.dart';
 import 'package:paper_tracker/blocs/auth/auth_state.dart';
 import 'package:paper_tracker/blocs/dashboard/dashboard_bloc.dart';
 import 'package:paper_tracker/blocs/dashboard/dashboard_event.dart';
@@ -27,7 +26,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _loadDashboard();
-    // Check for app updates after frame renders
     WidgetsBinding.instance.addPostFrameCallback((_) {
       UpdateService.checkForUpdate(context);
     });
@@ -45,16 +43,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            onPressed: () =>
-                context.read<AuthBloc>().add(AuthLogoutRequested()),
-          ),
-        ],
-      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/papers/add'),
         child: const Icon(Icons.add_rounded),
@@ -87,38 +75,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
         padding: const EdgeInsets.symmetric(vertical: 16),
         children: [
           // Greeting
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: BlocBuilder<AuthBloc, AuthState>(
-              builder: (context, authState) {
-                final name = authState is AuthAuthenticated
-                    ? authState.user.displayName ?? 'Researcher'
-                    : 'Researcher';
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Hello, $name 👋',
-                      style: Theme.of(context).textTheme.headlineLarge,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Here\'s your research overview',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(color: AppTheme.textMuted),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
+          _buildGreeting(),
           const SizedBox(height: 24),
 
-          // Stats Cards
+          // Stats Cards with gradient
           _buildStatsGrid(state),
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
+
+          // Status Distribution Bar
+          if (state.statusDistribution.isNotEmpty) ...[
+            _buildSectionHeader('Paper Pipeline', Icons.analytics_outlined),
+            const SizedBox(height: 12),
+            _buildStatusDistribution(state),
+            const SizedBox(height: 24),
+          ],
+
+          // Needs Attention
+          if (state.papersNeedingAttention.isNotEmpty) ...[
+            _buildSectionHeader('Needs Attention', Icons.warning_amber_rounded),
+            const SizedBox(height: 12),
+            ...state.papersNeedingAttention.take(3).map(_buildAttentionItem),
+            const SizedBox(height: 24),
+          ],
+
+          // Quick Actions
+          _buildQuickActions(),
+          const SizedBox(height: 24),
 
           // Upcoming Deadlines
           _buildSectionHeader('Upcoming Deadlines', Icons.schedule),
@@ -133,7 +115,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             )
           else
             ...state.upcomingDeadlines.map(_buildDeadlineItem),
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
 
           // Recent Papers
           _buildSectionHeader('Recent Activity', Icons.history),
@@ -154,6 +136,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildGreeting() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: BlocBuilder<AuthBloc, AuthState>(
+        builder: (context, authState) {
+          final name = authState is AuthAuthenticated
+              ? authState.user.displayName ?? 'Researcher'
+              : 'Researcher';
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Hello, $name 👋',
+                style: Theme.of(context).textTheme.headlineLarge,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Here\'s your research overview',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: AppTheme.textMuted),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildStatsGrid(DashboardLoaded state) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -170,24 +182,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
             '${state.totalPapers}',
             Icons.article_rounded,
             AppTheme.primaryColor,
+            const Color(0xFF1A237E),
           ),
           _buildStatCard(
             'In Progress',
             '${state.inProgressPapers}',
             Icons.edit_note_rounded,
             AppTheme.accentColor,
+            const Color(0xFF004D40),
           ),
           _buildStatCard(
             'Submitted',
             '${state.submittedPapers}',
             Icons.send_rounded,
             AppTheme.warningColor,
+            const Color(0xFF4A2800),
           ),
           _buildStatCard(
             'Published',
             '${state.publishedPapers}',
             Icons.celebration_rounded,
             AppTheme.successColor,
+            const Color(0xFF1B5E20),
           ),
         ],
       ),
@@ -195,13 +211,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildStatCard(
-      String label, String value, IconData icon, Color color) {
+      String label, String value, IconData icon, Color color, Color bgTint) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        gradient: LinearGradient(
+          colors: [
+            bgTint.withOpacity(0.6),
+            AppTheme.cardColor,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withOpacity(0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,7 +232,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 20, color: color),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, size: 16, color: color),
+              ),
               const Spacer(),
               Text(
                 value,
@@ -230,6 +260,208 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildStatusDistribution(DashboardLoaded state) {
+    final total = state.totalPapers;
+    if (total == 0) return const SizedBox.shrink();
+
+    final statusColors = <PaperStatus, Color>{
+      PaperStatus.idea: const Color(0xFF90CAF9),
+      PaperStatus.drafting: const Color(0xFF64B5F6),
+      PaperStatus.writing: AppTheme.primaryColor,
+      PaperStatus.internalReview: AppTheme.accentColor,
+      PaperStatus.submitted: AppTheme.warningColor,
+      PaperStatus.underReview: const Color(0xFFFFA726),
+      PaperStatus.revision: const Color(0xFFFF7043),
+      PaperStatus.published: AppTheme.successColor,
+      PaperStatus.rejected: AppTheme.errorColor,
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: [
+          // Stacked bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: SizedBox(
+              height: 12,
+              child: Row(
+                children: state.statusDistribution.entries.map((entry) {
+                  final fraction = entry.value / total;
+                  return Expanded(
+                    flex: (fraction * 1000).round().clamp(1, 1000),
+                    child: Container(
+                      color: statusColors[entry.key] ?? AppTheme.textMuted,
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Legend
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: state.statusDistribution.entries.map((entry) {
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: statusColors[entry.key] ?? AppTheme.textMuted,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${entry.key.label} (${entry.value})',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textMuted,
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttentionItem(Paper paper) {
+    String reason;
+    Color color;
+    IconData icon;
+
+    if (paper.status == PaperStatus.rejected) {
+      reason = 'Rejected';
+      color = AppTheme.errorColor;
+      icon = Icons.cancel_outlined;
+    } else if (paper.status == PaperStatus.revision) {
+      reason = 'Needs Revision';
+      color = const Color(0xFFFF7043);
+      icon = Icons.edit_outlined;
+    } else {
+      reason = 'Overdue';
+      color = AppTheme.warningColor;
+      icon = Icons.timer_off_outlined;
+    }
+
+    return GestureDetector(
+      onTap: () => context.push('/papers/${paper.id}'),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 18, color: color),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    paper.title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    reason,
+                    style: TextStyle(fontSize: 12, color: color),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right,
+                size: 20, color: AppTheme.textMuted),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActions() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildActionButton(
+              icon: Icons.add_rounded,
+              label: 'New Paper',
+              color: AppTheme.primaryColor,
+              onTap: () => context.push('/papers/add'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildActionButton(
+              icon: Icons.article_outlined,
+              label: 'View All',
+              color: AppTheme.accentColor,
+              onTap: () => context.go('/papers'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

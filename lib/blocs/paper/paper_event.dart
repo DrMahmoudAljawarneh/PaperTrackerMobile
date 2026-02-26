@@ -28,11 +28,17 @@ class PaperCreateRequested extends PaperEvent {
 
 class PaperUpdateRequested extends PaperEvent {
   final Paper paper;
+  final String? currentUserId;
+  final String? currentUserName;
 
-  const PaperUpdateRequested(this.paper);
+  const PaperUpdateRequested(
+    this.paper, {
+    this.currentUserId,
+    this.currentUserName,
+  });
 
   @override
-  List<Object?> get props => [paper];
+  List<Object?> get props => [paper, currentUserId, currentUserName];
 }
 
 class PaperDeleteRequested extends PaperEvent {

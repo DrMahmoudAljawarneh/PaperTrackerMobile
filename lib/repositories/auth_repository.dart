@@ -38,6 +38,15 @@ class AuthRepository {
     return user;
   }
 
+  Future<void> updateDisplayName(String displayName) async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) return;
+    await user.updateDisplayName(displayName);
+    await user.reload();
+    // Also update in RTDB
+    await _db.ref('users/${user.uid}/displayName').set(displayName);
+  }
+
   Future<void> signOut() async {
     await _firebaseAuth.signOut();
   }

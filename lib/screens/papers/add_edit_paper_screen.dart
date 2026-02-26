@@ -565,7 +565,11 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
         authors: _authors,
         updatedAt: now,
       );
-      context.read<PaperBloc>().add(PaperUpdateRequested(updated));
+      context.read<PaperBloc>().add(PaperUpdateRequested(
+            updated,
+            currentUserId: userId,
+            currentUserName: authState.user.displayName ?? '',
+          ));
     } else {
       final paper = Paper(
         id: '',

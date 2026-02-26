@@ -1,11 +1,17 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:paper_tracker/models/comment.dart';
+import 'package:paper_tracker/models/notification_model.dart';
+import 'package:paper_tracker/repositories/notification_repository.dart';
 
 class CommentRepository {
   final FirebaseDatabase _db;
+  final NotificationRepository? _notificationRepository;
 
-  CommentRepository({FirebaseDatabase? db})
-      : _db = db ?? FirebaseDatabase.instance;
+  CommentRepository({
+    FirebaseDatabase? db,
+    NotificationRepository? notificationRepository,
+  })  : _db = db ?? FirebaseDatabase.instance,
+        _notificationRepository = notificationRepository;
 
   DatabaseReference get _commentsRef => _db.ref('comments');
 
@@ -28,10 +34,31 @@ class CommentRepository {
     });
   }
 
-  /// Add a new comment to a paper
-  Future<String> addComment(Comment comment) async {
+  /// Add a new comment to a paper and notify collaborators.
+  /// Pass [paperAuthorIds] and [paperTitle] to send notifications.
+  Future<String> addComment(
+    Comment comment, {
+    List<String> paperAuthorIds = const [],
+    String paperTitle = '',
+  }) async {
     final newRef = _commentsRef.push();
     await newRef.set(comment.toMap());
+
+    // Notify all collaborators except the comment author
+    if (_notificationRepository != null && paperAuthorIds.isNotEmpty) {
+      await _notificationRepository!.pushNotificationToMany(
+        recipientIds: paperAuthorIds,
+        senderId: comment.authorId,
+        senderName: comment.authorName,
+        title: 'New Comment',
+        message: paperTitle.isNotEmpty
+            ? '${comment.authorName} commented on "$paperTitle"'
+            : '${comment.authorName} left a comment',
+        type: NotificationType.commentAdded,
+        relatedPaperId: comment.paperId,
+      );
+    }
+
     return newRef.key!;
   }
 
@@ -40,3 +67,4 @@ class CommentRepository {
     await _commentsRef.child(commentId).remove();
   }
 }
+

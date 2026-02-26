@@ -6,6 +6,7 @@ import 'package:paper_tracker/blocs/auth/auth_state.dart';
 import 'package:paper_tracker/config/theme.dart';
 import 'package:paper_tracker/models/comment.dart';
 import 'package:paper_tracker/repositories/comment_repository.dart';
+import 'package:paper_tracker/repositories/paper_repository.dart';
 import 'package:paper_tracker/widgets/empty_state.dart';
 
 class CommentsTab extends StatefulWidget {
@@ -208,7 +209,16 @@ class _CommentsTabState extends State<CommentsTab> {
       createdAt: DateTime.now(),
     );
 
-    await context.read<CommentRepository>().addComment(comment);
+    // Fetch paper to get collaborator ids and title for notifications
+    final paper = await context
+        .read<PaperRepository>()
+        .getPaperById(widget.paperId);
+
+    await context.read<CommentRepository>().addComment(
+          comment,
+          paperAuthorIds: paper?.authorIds ?? [],
+          paperTitle: paper?.title ?? '',
+        );
     _commentController.clear();
     setState(() => _isSending = false);
   }
