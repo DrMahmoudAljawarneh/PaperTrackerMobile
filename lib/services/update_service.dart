@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class UpdateService {
   // TODO: Replace with your actual Firebase Hosting URL after first deploy
@@ -112,6 +114,15 @@ class UpdateService {
 
   static Future<void> _startDownload(String url) async {
     try {
+      if (kIsWeb) {
+        // On web, open the download URL in a new tab
+        final uri = Uri.parse(url);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+        return;
+      }
+
       // Request notification permission to show the progress bar (required on Android 13+)
       await Permission.notification.request();
 
@@ -123,9 +134,9 @@ class UpdateService {
         url: url,
         savedDir: directory.path,
         fileName: 'paper-tracker-update.apk',
-        showNotification: true, // show download progress in status bar
-        openFileFromNotification: true, // click on notification to open the downloaded file (install APK)
-        saveInPublicStorage: true, // move to public Downloads folder so package installer can read it
+        showNotification: true,
+        openFileFromNotification: true,
+        saveInPublicStorage: true,
       );
       
       debugPrint('Update download started with taskId: $taskId');

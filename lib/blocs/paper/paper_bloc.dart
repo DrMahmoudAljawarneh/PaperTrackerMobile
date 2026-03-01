@@ -81,7 +81,13 @@ class PaperBloc extends Bloc<PaperEvent, PaperState> {
     Emitter<PaperState> emit,
   ) async {
     try {
-      await _paperRepository.updateStatus(event.paperId, event.newStatus);
+      await _paperRepository.updateStatus(
+        event.paperId,
+        event.newStatus,
+        currentUserId: event.currentUserId,
+        currentUserName: event.currentUserName,
+        paperTitle: event.paperTitle,
+      );
     } catch (e) {
       emit(PaperError(e.toString()));
     }

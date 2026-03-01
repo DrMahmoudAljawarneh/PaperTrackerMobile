@@ -92,6 +92,7 @@ class Paper extends Equatable {
   final String targetVenue;
   final DateTime? deadline;
   final List<String> tags;
+  final String currentlyWith;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -107,6 +108,7 @@ class Paper extends Equatable {
     this.targetVenue = '',
     this.deadline,
     this.tags = const [],
+    this.currentlyWith = '',
     required this.createdAt,
     required this.updatedAt,
   });
@@ -123,6 +125,7 @@ class Paper extends Equatable {
     String? targetVenue,
     DateTime? deadline,
     List<String>? tags,
+    String? currentlyWith,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -138,6 +141,7 @@ class Paper extends Equatable {
       targetVenue: targetVenue ?? this.targetVenue,
       deadline: deadline ?? this.deadline,
       tags: tags ?? this.tags,
+      currentlyWith: currentlyWith ?? this.currentlyWith,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -155,6 +159,7 @@ class Paper extends Equatable {
       'targetVenue': targetVenue,
       'deadline': deadline?.toIso8601String(),
       'tags': tags,
+      'currentlyWith': currentlyWith,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -181,6 +186,7 @@ class Paper extends Equatable {
           ? DateTime.parse(map['deadline'])
           : null,
       tags: List<String>.from(map['tags'] ?? []),
+      currentlyWith: map['currentlyWith'] ?? '',
       createdAt: map['createdAt'] != null
           ? DateTime.parse(map['createdAt'])
           : DateTime.now(),
@@ -203,6 +209,7 @@ class Paper extends Equatable {
         targetVenue,
         deadline,
         tags,
+        currentlyWith,
         createdAt,
         updatedAt,
       ];

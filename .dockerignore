@@ -1,0 +1,26 @@
+# Build artifacts
+build/
+.dart_tool/
+.packages
+
+# Platform-specific (not needed for web build in Docker)
+android/.gradle/
+android/app/build/
+ios/
+macos/
+linux/
+windows/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Git
+.git/
+.gitignore
+
+# Misc
+*.md
+.env
+.dockerignore

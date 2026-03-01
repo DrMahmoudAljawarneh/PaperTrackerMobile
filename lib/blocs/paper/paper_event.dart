@@ -53,11 +53,20 @@ class PaperDeleteRequested extends PaperEvent {
 class PaperStatusChanged extends PaperEvent {
   final String paperId;
   final PaperStatus newStatus;
+  final String currentUserId;
+  final String currentUserName;
+  final String paperTitle;
 
-  const PaperStatusChanged({required this.paperId, required this.newStatus});
+  const PaperStatusChanged({
+    required this.paperId,
+    required this.newStatus,
+    required this.currentUserId,
+    required this.currentUserName,
+    required this.paperTitle,
+  });
 
   @override
-  List<Object?> get props => [paperId, newStatus];
+  List<Object?> get props => [paperId, newStatus, currentUserId, currentUserName, paperTitle];
 }
 
 class PapersUpdated extends PaperEvent {

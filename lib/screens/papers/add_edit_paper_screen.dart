@@ -31,6 +31,7 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
   final _tagController = TextEditingController();
   final _authorController = TextEditingController();
   final _collaboratorController = TextEditingController();
+  final _currentlyWithController = TextEditingController();
 
   PaperStatus _status = PaperStatus.idea;
   PaperPriority _priority = PaperPriority.medium;
@@ -78,6 +79,7 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
         _tags = List.from(paper.tags);
         _authors = List.from(paper.authors);
         _collaborators = collabs;
+        _currentlyWithController.text = paper.currentlyWith;
         _isLoading = false;
       });
     } else {
@@ -93,6 +95,7 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
     _tagController.dispose();
     _authorController.dispose();
     _collaboratorController.dispose();
+    _currentlyWithController.dispose();
     super.dispose();
   }
 
@@ -199,6 +202,17 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
 
                   // Tags
                   _buildTagsSection(),
+                  const SizedBox(height: 20),
+
+                  // Currently With
+                  TextFormField(
+                    controller: _currentlyWithController,
+                    decoration: const InputDecoration(
+                      labelText: 'Currently With',
+                      hintText: 'e.g. Dr. Smith, IEEE Reviewers',
+                      prefixIcon: Icon(Icons.person_pin_outlined),
+                    ),
+                  ),
                   const SizedBox(height: 40),
 
                   // Delete button (edit mode only)
@@ -563,6 +577,7 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
         deadline: _deadline,
         tags: _tags,
         authors: _authors,
+        currentlyWith: _currentlyWithController.text.trim(),
         updatedAt: now,
       );
       context.read<PaperBloc>().add(PaperUpdateRequested(
@@ -583,6 +598,7 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
         targetVenue: _venueController.text.trim(),
         deadline: _deadline,
         tags: _tags,
+        currentlyWith: _currentlyWithController.text.trim(),
         createdAt: now,
         updatedAt: now,
       );

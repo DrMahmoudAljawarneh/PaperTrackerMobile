@@ -7,6 +7,8 @@ import 'package:paper_tracker/blocs/paper/paper_event.dart';
 import 'package:paper_tracker/config/theme.dart';
 import 'package:paper_tracker/models/paper.dart';
 import 'package:paper_tracker/models/user_model.dart';
+import 'package:paper_tracker/blocs/auth/auth_bloc.dart';
+import 'package:paper_tracker/blocs/auth/auth_state.dart';
 import 'package:paper_tracker/repositories/auth_repository.dart';
 import 'package:paper_tracker/repositories/paper_repository.dart';
 import 'package:paper_tracker/screens/paper_detail/tasks_tab.dart';
@@ -187,6 +189,28 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
             DeadlineCountdown(deadline: paper.deadline!),
           ],
 
+          // Currently With
+          if (paper.currentlyWith.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.person_pin_outlined,
+                    size: 16, color: AppTheme.textMuted),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Currently with: ${paper.currentlyWith}',
+                    style: const TextStyle(
+                      color: AppTheme.accentColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+
           // Status transition
           const SizedBox(height: 16),
           _buildStatusTransition(paper),
@@ -225,10 +249,17 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
             onTap: isActive
                 ? null
                 : () {
-                    context.read<PaperBloc>().add(PaperStatusChanged(
-                          paperId: paper.id,
-                          newStatus: status,
-                        ));
+                    final authState = context.read<AuthBloc>().state;
+                    if (authState is AuthAuthenticated) {
+                      context.read<PaperBloc>().add(PaperStatusChanged(
+                            paperId: paper.id,
+                            newStatus: status,
+                            currentUserId: authState.user.uid,
+                            currentUserName:
+                                authState.user.displayName ?? '',
+                            paperTitle: paper.title,
+                          ));
+                    }
                   },
             child: Container(
               margin: const EdgeInsets.only(right: 8),

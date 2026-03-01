@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:paper_tracker/app.dart';
 import 'package:paper_tracker/services/notification_service.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
@@ -11,17 +12,48 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  
-  // Initialize flutter_downloader for foreground background downloads
+
+  // Run the app immediately – do NOT block on optional services
+  runApp(const PaperTrackerApp());
+
+  // Initialize optional services in the background AFTER the UI is up
+  _initOptionalServices();
+}
+
+/// Initialize FlutterDownloader & NotificationService without blocking the UI.
+/// Any errors are surfaced as toast messages so you can see what went wrong.
+Future<void> _initOptionalServices() async {
+  // --- FlutterDownloader ---
   if (!kIsWeb) {
-    await FlutterDownloader.initialize(
-      debug: true, // set to false to disable printing logs to console
-      ignoreSsl: true, // option: set to false to disable working with http links
-    );
+    try {
+      await FlutterDownloader.initialize(
+        debug: true,
+        ignoreSsl: true,
+      );
+      _showToast('✅ FlutterDownloader initialized');
+    } catch (e) {
+      debugPrint('FlutterDownloader init failed: $e');
+      _showToast('❌ FlutterDownloader init failed: $e', isError: true);
+    }
   }
 
-  // Initialize local notifications service
-  await NotificationService().initialize();
+  // --- Local Notifications ---
+  try {
+    await NotificationService().initialize();
+    _showToast('✅ NotificationService initialized');
+  } catch (e) {
+    debugPrint('NotificationService init failed: $e');
+    _showToast('❌ NotificationService init failed: $e', isError: true);
+  }
+}
 
-  runApp(const PaperTrackerApp());
+void _showToast(String message, {bool isError = false}) {
+  Fluttertoast.showToast(
+    msg: message,
+    toastLength: Toast.LENGTH_LONG,
+    gravity: ToastGravity.BOTTOM,
+    backgroundColor: isError ? Colors.red.shade800 : Colors.green.shade800,
+    textColor: Colors.white,
+    fontSize: 14.0,
+  );
 }

@@ -169,12 +169,42 @@ class PaperRepository {
     await _papersRef.child(paperId).remove();
   }
 
-  /// Update only the status of a paper
-  Future<void> updateStatus(String paperId, PaperStatus status) async {
+  /// Update only the status of a paper and notify all contributors.
+  Future<void> updateStatus(
+    String paperId,
+    PaperStatus status, {
+    String? currentUserId,
+    String? currentUserName,
+    String? paperTitle,
+  }) async {
+    // Fetch the paper to get authorIds for notifications
+    final paperSnapshot = await _papersRef.child(paperId).get();
+    List<String> authorIds = [];
+    if (paperSnapshot.exists) {
+      final data = Map<String, dynamic>.from(paperSnapshot.value as Map);
+      authorIds = List<String>.from(data['authorIds'] ?? []);
+    }
+
     await _papersRef.child(paperId).update({
       'status': status.name,
       'updatedAt': DateTime.now().toIso8601String(),
     });
+
+    // Notify all contributors about the status change
+    if (authorIds.isNotEmpty &&
+        _notificationRepository != null &&
+        currentUserId != null) {
+      await _notificationRepository!.pushNotificationToMany(
+        recipientIds: authorIds,
+        senderId: currentUserId,
+        senderName: currentUserName ?? '',
+        title: 'Status Changed',
+        message:
+            '"${paperTitle ?? 'Paper'}" status changed to ${status.label}',
+        type: NotificationType.statusChanged,
+        relatedPaperId: paperId,
+      );
+    }
   }
 }
 
