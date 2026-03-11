@@ -60,7 +60,11 @@ class PaperRepository {
   }
 
   /// Create a new paper
-  Future<String> createPaper(Paper paper) async {
+  Future<String> createPaper(
+    Paper paper, {
+    String? currentUserId,
+    String? currentUserName,
+  }) async {
     final newRef = _papersRef.push();
     final paperId = newRef.key!;
     await newRef.set(paper.toMap());
@@ -71,6 +75,21 @@ class PaperRepository {
       updates['papersByUser/$authorId/$paperId'] = true;
     }
     await _db.ref().update(updates);
+
+    // Notify co-authors that they've been added to a new paper
+    if (paper.authorIds.length > 1 &&
+        _notificationRepository != null &&
+        currentUserId != null) {
+      await _notificationRepository!.pushNotificationToMany(
+        recipientIds: paper.authorIds,
+        senderId: currentUserId,
+        senderName: currentUserName ?? '',
+        title: 'New Paper Created',
+        message: 'You were added to a new paper: "${paper.title}"',
+        type: NotificationType.paperCreated,
+        relatedPaperId: paperId,
+      );
+    }
 
     return paperId;
   }
@@ -119,6 +138,23 @@ class PaperRepository {
         title: 'Added to Paper',
         message: 'You were added as a collaborator on "${paper.title}"',
         type: NotificationType.collaboratorAdded,
+        relatedPaperId: paper.id,
+      );
+    }
+
+    // Notify existing co-authors that the paper was modified
+    final existingAuthors =
+        paper.authorIds.where((id) => !added.contains(id)).toList();
+    if (existingAuthors.isNotEmpty &&
+        _notificationRepository != null &&
+        currentUserId != null) {
+      await _notificationRepository!.pushNotificationToMany(
+        recipientIds: existingAuthors,
+        senderId: currentUserId,
+        senderName: currentUserName ?? '',
+        title: 'Paper Modified',
+        message: '"${paper.title}" has been updated',
+        type: NotificationType.paperModified,
         relatedPaperId: paper.id,
       );
     }

@@ -602,7 +602,11 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
         createdAt: now,
         updatedAt: now,
       );
-      context.read<PaperBloc>().add(PaperCreateRequested(paper));
+      context.read<PaperBloc>().add(PaperCreateRequested(
+            paper,
+            currentUserId: userId,
+            currentUserName: authState.user.displayName ?? '',
+          ));
     }
     context.pop();
   }

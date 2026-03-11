@@ -1,15 +1,15 @@
-FROM --platform=linux/amd64 ghcr.io/cirruslabs/flutter:3.29.2 AS build
+FROM --platform=linux/amd64 ghcr.io/cirruslabs/flutter:3.38.7 AS build
 
 WORKDIR /app
 
-# Copy dependency files first for caching
-COPY pubspec.yaml pubspec.lock* ./
-
-# Get dependencies
-RUN flutter pub get
+# Workaround for git dubious ownership in Docker
+RUN git config --global --add safe.directory '*'
 
 # Copy the rest of the source code
 COPY . .
+
+# Get dependencies
+RUN flutter pub get -v
 
 # Build for web
 RUN flutter build web --release

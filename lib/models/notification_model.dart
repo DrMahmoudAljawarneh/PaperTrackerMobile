@@ -5,7 +5,9 @@ enum NotificationType {
   commentAdded,
   taskAssigned,
   taskCompleted,
-  statusChanged;
+  statusChanged,
+  paperCreated,
+  paperModified;
 
   String get label {
     switch (this) {
@@ -19,6 +21,10 @@ enum NotificationType {
         return 'Task Completed';
       case NotificationType.statusChanged:
         return 'Status Changed';
+      case NotificationType.paperCreated:
+        return 'Paper Created';
+      case NotificationType.paperModified:
+        return 'Paper Modified';
     }
   }
 
@@ -34,6 +40,10 @@ enum NotificationType {
         return '✅';
       case NotificationType.statusChanged:
         return '🔄';
+      case NotificationType.paperCreated:
+        return '📄';
+      case NotificationType.paperModified:
+        return '✏️';
     }
   }
 }

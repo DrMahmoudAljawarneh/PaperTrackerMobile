@@ -187,6 +187,10 @@ class _NotificationTile extends StatelessWidget {
         return AppTheme.successColor;
       case NotificationType.statusChanged:
         return const Color(0xFFF97316);
+      case NotificationType.paperCreated:
+        return AppTheme.successColor;
+      case NotificationType.paperModified:
+        return AppTheme.primaryColor;
     }
   }
 
@@ -202,6 +206,10 @@ class _NotificationTile extends StatelessWidget {
         return Icons.task_alt_rounded;
       case NotificationType.statusChanged:
         return Icons.swap_horiz_rounded;
+      case NotificationType.paperCreated:
+        return Icons.note_add_rounded;
+      case NotificationType.paperModified:
+        return Icons.edit_note_rounded;
     }
   }
 
