@@ -16,7 +16,7 @@ class NotificationService {
     if (_initialized || kIsWeb) return;
 
     const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@mipmap/launcher_icon');
 
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -82,7 +82,7 @@ class NotificationService {
       importance: Importance.high,
       priority: Priority.high,
       showWhen: true,
-      icon: '@mipmap/ic_launcher',
+      icon: '@mipmap/launcher_icon',
     );
 
     const iosDetails = DarwinNotificationDetails(
