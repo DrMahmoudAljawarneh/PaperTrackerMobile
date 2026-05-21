@@ -8,6 +8,8 @@ import 'package:paper_tracker/blocs/paper/paper_event.dart';
 import 'package:paper_tracker/blocs/paper/paper_state.dart';
 import 'package:paper_tracker/config/theme.dart';
 import 'package:paper_tracker/models/paper.dart';
+import 'package:paper_tracker/models/user_model.dart';
+import 'package:paper_tracker/repositories/auth_repository.dart';
 import 'package:paper_tracker/widgets/empty_state.dart';
 import 'package:paper_tracker/widgets/paper_card.dart';
 
@@ -21,6 +23,16 @@ enum _SortOption {
   final String label;
   final IconData icon;
   const _SortOption(this.label, this.icon);
+}
+
+enum _SharingFilter {
+  all('All Papers'),
+  sharedByMe('Shared by me'),
+  sharedWithMe('Shared with me'),
+  private('Private');
+
+  final String label;
+  const _SharingFilter(this.label);
 }
 
 class PapersListScreen extends StatefulWidget {
@@ -37,10 +49,21 @@ class _PapersListScreenState extends State<PapersListScreen> {
   String _searchQuery = '';
   final _searchController = TextEditingController();
 
+  _SharingFilter _selectedSharing = _SharingFilter.all;
+  List<UserModel> _collaborators = <UserModel>[];
+  String? _selectedCollaboratorId;
+  List<String> _lastCheckedPaperIds = <String>[];
+
   @override
   void initState() {
     super.initState();
     _loadPapers();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final paperState = context.read<PaperBloc>().state;
+      if (paperState is PapersLoaded) {
+        _updateCollaboratorList(paperState.papers);
+      }
+    });
   }
 
   @override
@@ -70,6 +93,39 @@ class _PapersListScreenState extends State<PapersListScreen> {
     if (_selectedPriority != null) {
       filtered =
           filtered.where((p) => p.priority == _selectedPriority).toList();
+    }
+
+    final authState = context.read<AuthBloc>().state;
+    final currentUserId = authState is AuthAuthenticated ? authState.user.uid : '';
+
+    // Sharing filter
+    if (currentUserId.isNotEmpty) {
+      switch (_selectedSharing) {
+        case _SharingFilter.all:
+          break;
+        case _SharingFilter.sharedByMe:
+          filtered = filtered
+              .where((p) => p.leadAuthorId == currentUserId && p.authorIds.length > 1)
+              .toList();
+          break;
+        case _SharingFilter.sharedWithMe:
+          filtered = filtered
+              .where((p) => p.leadAuthorId != currentUserId)
+              .toList();
+          break;
+        case _SharingFilter.private:
+          filtered = filtered
+              .where((p) => p.leadAuthorId == currentUserId && p.authorIds.length <= 1)
+              .toList();
+          break;
+      }
+    }
+
+    // Colleague filter
+    if (_selectedCollaboratorId != null) {
+      filtered = filtered
+          .where((p) => p.authorIds.contains(_selectedCollaboratorId))
+          .toList();
     }
 
     // Search
@@ -142,6 +198,32 @@ class _PapersListScreenState extends State<PapersListScreen> {
               ),
             ),
           ),
+
+          // Sharing filter chips
+          SizedBox(
+            height: 38,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: [
+                ..._SharingFilter.values.map((filter) => _buildSharingChip(filter)),
+                if (_collaborators.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Center(
+                      child: Container(
+                        width: 1,
+                        height: 20,
+                        color: AppTheme.dividerColor.withOpacity(0.5),
+                      ),
+                    ),
+                  ),
+                  _buildColleagueDropdownChip(),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
 
           // Status filter chips
           SizedBox(
@@ -238,7 +320,12 @@ class _PapersListScreenState extends State<PapersListScreen> {
 
           // Papers list
           Expanded(
-            child: BlocBuilder<PaperBloc, PaperState>(
+            child: BlocConsumer<PaperBloc, PaperState>(
+              listener: (context, state) {
+                if (state is PapersLoaded) {
+                  _updateCollaboratorList(state.papers);
+                }
+              },
               builder: (context, state) {
                 if (state is PaperLoading) {
                   return const Center(child: CircularProgressIndicator());
@@ -264,6 +351,8 @@ class _PapersListScreenState extends State<PapersListScreen> {
                               ),
                               if (_selectedStatus != null ||
                                   _selectedPriority != null ||
+                                  _selectedSharing != _SharingFilter.all ||
+                                  _selectedCollaboratorId != null ||
                                   _searchQuery.isNotEmpty) ...[
                                 const Spacer(),
                                 GestureDetector(
@@ -271,6 +360,8 @@ class _PapersListScreenState extends State<PapersListScreen> {
                                     setState(() {
                                       _selectedStatus = null;
                                       _selectedPriority = null;
+                                      _selectedSharing = _SharingFilter.all;
+                                      _selectedCollaboratorId = null;
                                       _searchQuery = '';
                                       _searchController.clear();
                                     });
@@ -332,6 +423,190 @@ class _PapersListScreenState extends State<PapersListScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _updateCollaboratorList(List<Paper> papers) async {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthAuthenticated) return;
+    final currentUserId = authState.user.uid;
+
+    final paperIds = papers.map((p) => p.id).toList()..sort();
+    final bool paperIdsChanged = _lastCheckedPaperIds.length != paperIds.length ||
+        !_lastCheckedPaperIds.asMap().entries.every((e) => paperIds[e.key] == e.value);
+
+    if (!paperIdsChanged) return;
+    _lastCheckedPaperIds = paperIds;
+
+    final collaboratorIds = papers
+        .expand((p) => p.authorIds)
+        .where((id) => id != currentUserId)
+        .toSet()
+        .toList();
+
+    if (collaboratorIds.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _collaborators = [];
+        _selectedCollaboratorId = null;
+      });
+      return;
+    }
+
+    final authRepository = context.read<AuthRepository>();
+    final fetchedCollaborators = <UserModel>[];
+
+    for (final id in collaboratorIds) {
+      try {
+        final user = await authRepository.getUserById(id);
+        if (user != null) {
+          fetchedCollaborators.add(user);
+        }
+      } catch (e) {
+        debugPrint('Error fetching collaborator $id: $e');
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _collaborators = fetchedCollaborators;
+      if (_selectedCollaboratorId != null &&
+          !collaboratorIds.contains(_selectedCollaboratorId)) {
+        _selectedCollaboratorId = null;
+      }
+    });
+  }
+
+  Widget _buildSharingChip(_SharingFilter filter) {
+    final isSelected = _selectedSharing == filter;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(filter.label, style: const TextStyle(fontSize: 12)),
+        selected: isSelected,
+        onSelected: (selected) {
+          setState(() {
+            if (selected) {
+              _selectedSharing = filter;
+            }
+          });
+        },
+        backgroundColor: AppTheme.cardColor,
+        selectedColor: AppTheme.primaryColor.withOpacity(0.25),
+        checkmarkColor: AppTheme.primaryColor,
+        side: BorderSide(
+          color: isSelected
+              ? AppTheme.primaryColor.withOpacity(0.5)
+              : Colors.transparent,
+        ),
+        visualDensity: VisualDensity.compact,
+      ),
+    );
+  }
+
+  Widget _buildColleagueDropdownChip() {
+    final isSelected = _selectedCollaboratorId != null;
+    final selectedColleague = _selectedCollaboratorId != null
+        ? _collaborators.firstWhere(
+            (c) => c.uid == _selectedCollaboratorId,
+            orElse: () => UserModel(
+              uid: '',
+              email: '',
+              displayName: 'Unknown',
+              photoUrl: '',
+              createdAt: DateTime.now(),
+            ),
+          )
+        : null;
+
+    final labelText = selectedColleague != null
+        ? (selectedColleague.displayName.isNotEmpty
+            ? selectedColleague.displayName
+            : selectedColleague.email)
+        : 'Any Colleague';
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: PopupMenuButton<String?>(
+        initialValue: _selectedCollaboratorId,
+        onSelected: (colleagueId) {
+          setState(() {
+            _selectedCollaboratorId = colleagueId;
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AppTheme.primaryColor.withOpacity(0.25)
+                : AppTheme.cardColor,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected
+                  ? AppTheme.primaryColor.withOpacity(0.5)
+                  : AppTheme.dividerColor.withOpacity(0.3),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Colleague: $labelText',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.arrow_drop_down,
+                size: 16,
+                color: isSelected ? AppTheme.primaryColor : AppTheme.textMuted,
+              ),
+            ],
+          ),
+        ),
+        itemBuilder: (context) {
+          return [
+            const PopupMenuItem<String?>(
+              value: null,
+              child: Row(
+                children: [
+                  Icon(Icons.people_outline, size: 16, color: AppTheme.textMuted),
+                  SizedBox(width: 8),
+                  Text('Any Colleague', style: TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+                ],
+              ),
+            ),
+            ..._collaborators.map((c) {
+              final name = c.displayName.isNotEmpty ? c.displayName : c.email;
+              final isThisSelected = c.uid == _selectedCollaboratorId;
+              return PopupMenuItem<String?>(
+                value: c.uid,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.person,
+                      size: 16,
+                      color: isThisSelected ? AppTheme.primaryColor : AppTheme.textMuted,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      name,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isThisSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
+                        fontWeight: isThisSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ];
+        },
       ),
     );
   }

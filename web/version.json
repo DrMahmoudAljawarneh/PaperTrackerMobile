@@ -1,5 +1,5 @@
 {
-    "version":  "0.8.1",
-    "apkUrl":  "https://github.com/DrMahmoudAljawarneh/PaperTrackerMobile/releases/download/v0.8.1/app-release.apk",
-    "releaseNotes":  "Initial release with paper tracking, collaboration, and dashboard"
+    "version":  "0.8.2",
+    "apkUrl":  "https://github.com/DrMahmoudAljawarneh/PaperTrackerMobile/releases/download/v0.8.2/app-release.apk",
+    "releaseNotes":  "Added sharing category filters (All, Shared by me, Shared with me, Private) and dynamic colleague dropdown filtering."
 }
