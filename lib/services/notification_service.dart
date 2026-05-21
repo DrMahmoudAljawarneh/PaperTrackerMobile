@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'notification_stub.dart'
+    if (dart.library.html) 'notification_web.dart' as web_notif;
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -11,9 +13,25 @@ class NotificationService {
 
   bool _initialized = false;
 
+  bool get isWebNotificationSupported {
+    if (!kIsWeb) return false;
+    return web_notif.isWebNotificationSupported();
+  }
+
+  String get webNotificationPermission {
+    if (!kIsWeb) return 'unsupported';
+    return web_notif.getWebNotificationPermission();
+  }
+
   /// Initialize the local notifications plugin. Call once at app startup.
   Future<void> initialize() async {
-    if (_initialized || kIsWeb) return;
+    if (_initialized) return;
+
+    if (kIsWeb) {
+      await web_notif.initWebNotifications();
+      _initialized = true;
+      return;
+    }
 
     const androidSettings =
         AndroidInitializationSettings('@mipmap/launcher_icon');
@@ -73,7 +91,12 @@ class NotificationService {
     required String body,
     String? payload,
   }) async {
-    if (kIsWeb || !_initialized) return;
+    if (kIsWeb) {
+      await web_notif.showWebNotification(title, body);
+      return;
+    }
+
+    if (!_initialized) return;
 
     const androidDetails = AndroidNotificationDetails(
       'paper_tracker_notifications',

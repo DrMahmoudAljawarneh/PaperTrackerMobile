@@ -10,6 +10,9 @@ import 'package:paper_tracker/blocs/notification/notification_state.dart';
 import 'package:paper_tracker/config/theme.dart';
 import 'package:paper_tracker/models/notification_model.dart';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:paper_tracker/services/notification_service.dart';
+
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
 
@@ -68,14 +71,18 @@ class NotificationsScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (state is NotificationsLoaded) {
-            if (state.notifications.isEmpty) {
-              return _buildEmptyState();
-            }
-            return _buildNotificationList(context, state.notifications, userId);
-          }
+          final notifications = state is NotificationsLoaded ? state.notifications : <NotificationModel>[];
 
-          return _buildEmptyState();
+          return Column(
+            children: [
+              const _WebPermissionBanner(),
+              Expanded(
+                child: notifications.isEmpty
+                    ? _buildEmptyState()
+                    : _buildNotificationList(context, notifications, userId),
+              ),
+            ],
+          );
         },
       ),
     );
@@ -334,3 +341,115 @@ class _NotificationTile extends StatelessWidget {
     return DateFormat('MMM d').format(dateTime);
   }
 }
+
+class _WebPermissionBanner extends StatefulWidget {
+  const _WebPermissionBanner();
+
+  @override
+  State<_WebPermissionBanner> createState() => _WebPermissionBannerState();
+}
+
+class _WebPermissionBannerState extends State<_WebPermissionBanner> {
+  String _permission = 'unsupported';
+  bool _supported = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPermission();
+  }
+
+  void _checkPermission() {
+    final ns = NotificationService();
+    setState(() {
+      _supported = ns.isWebNotificationSupported;
+      _permission = ns.webNotificationPermission;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!kIsWeb || !_supported || _permission == 'granted') {
+      return const SizedBox.shrink();
+    }
+
+    final isDenied = _permission == 'denied';
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDenied
+            ? AppTheme.errorColor.withOpacity(0.1)
+            : AppTheme.primaryColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDenied
+              ? AppTheme.errorColor.withOpacity(0.3)
+              : AppTheme.primaryColor.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isDenied
+                    ? Icons.warning_amber_rounded
+                    : Icons.info_outline_rounded,
+                color: isDenied ? AppTheme.errorColor : AppTheme.primaryLight,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isDenied
+                      ? 'Notifications Blocked'
+                      : 'Enable Web Notifications',
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isDenied
+                ? 'Web notifications are blocked in your browser settings. Please enable them in your browser URL bar or site settings to get real-time updates.'
+                : 'Get browser push notifications when collaborators edit papers, assign you tasks, or leave comments.',
+            style: const TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 13,
+            ),
+          ),
+          if (!isDenied) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  await NotificationService().initialize();
+                  _checkPermission();
+                },
+                icon: const Icon(Icons.notifications_active_outlined, size: 18),
+                label: const Text('Enable Notifications'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+

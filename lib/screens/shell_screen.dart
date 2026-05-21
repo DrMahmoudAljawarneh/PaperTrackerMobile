@@ -7,6 +7,7 @@ import 'package:paper_tracker/blocs/notification/notification_bloc.dart';
 import 'package:paper_tracker/blocs/notification/notification_event.dart';
 import 'package:paper_tracker/blocs/notification/notification_state.dart';
 import 'package:paper_tracker/config/theme.dart';
+import 'package:paper_tracker/services/notification_service.dart';
 
 class ShellScreen extends StatefulWidget {
   final Widget child;
@@ -61,7 +62,10 @@ class _ShellScreenState extends State<ShellScreen> {
                   backgroundColor: AppTheme.errorColor,
                   child: const Icon(Icons.notifications_outlined),
                 ),
-                onPressed: () => context.push('/notifications'),
+                onPressed: () {
+                  NotificationService().initialize();
+                  context.push('/notifications');
+                },
               );
             },
           ),
