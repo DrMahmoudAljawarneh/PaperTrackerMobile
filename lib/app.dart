@@ -87,6 +87,7 @@ class PaperTrackerApp extends StatelessWidget {
               debugShowCheckedModeBanner: false,
               theme: AppTheme.darkTheme,
               routerConfig: router,
+              builder: (context, child) => SelectionArea(child: child!),
             );
           },
         ),

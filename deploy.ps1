@@ -1,4 +1,4 @@
-# Paper Tracker — Deploy Script
+﻿# Paper Tracker — Deploy Script
 # Builds APK, creates GitHub Release, deploys landing page to Firebase Hosting
 
 param(
@@ -11,7 +11,7 @@ Write-Host "`n🚀 Paper Tracker Deploy Script" -ForegroundColor Cyan
 Write-Host "================================`n"
 
 # Step 1: Read current version from version.json
-$versionFile = "hosting/version.json"
+$versionFile = "web/version.json"
 $versionData = Get-Content $versionFile | ConvertFrom-Json
 $currentVersion = $versionData.version
 Write-Host "📌 Current version: $currentVersion"
@@ -24,7 +24,7 @@ if ($Version -ne "") {
     $versionData.version = $Version
     $versionData.apkUrl = "https://github.com/DrMahmoudAljawarneh/PaperTrackerMobile/releases/download/v$Version/app-release.apk"
     $versionData | ConvertTo-Json | Set-Content $versionFile
-    Write-Host "   ✅ Updated hosting/version.json"
+    Write-Host "   ✅ Updated web/version.json"
 
     # Update pubspec.yaml
     $pubspec = Get-Content "pubspec.yaml" -Raw
@@ -33,8 +33,7 @@ if ($Version -ne "") {
     Write-Host "   ✅ Updated pubspec.yaml"
 
     $currentVersion = $Version
-}
-else {
+} else {
     # Ensure apkUrl points to GitHub
     $versionData.apkUrl = "https://github.com/DrMahmoudAljawarneh/PaperTrackerMobile/releases/download/v$currentVersion/app-release.apk"
     $versionData | ConvertTo-Json | Set-Content $versionFile
@@ -52,6 +51,14 @@ $apkPath = "build\app\outputs\flutter-apk\app-release.apk"
 $apkSize = [math]::Round((Get-Item $apkPath).length / 1MB, 1)
 Write-Host "   📦 APK size: $apkSize MB"
 
+Write-Host "`n🌐 Building Flutter Web (release mode)..." -ForegroundColor Yellow
+flutter build web --release
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ Web build failed!" -ForegroundColor Red
+    exit 1
+}
+Write-Host "   ✅ Web build successful"
+
 # Step 3: Git commit and push
 Write-Host "`n📤 Committing and pushing to GitHub..." -ForegroundColor Yellow
 git add .
@@ -67,9 +74,9 @@ if ($LASTEXITCODE -ne 0) {
     gh release upload "v$currentVersion" $apkPath --clobber 2>&1
 }
 
-# Step 5: Deploy landing page to Firebase Hosting
-Write-Host "`n🔥 Deploying landing page to Firebase Hosting..." -ForegroundColor Yellow
-firebase deploy --only hosting
+# Step 5: Deploy compiled Web app to Firebase Hosting
+Write-Host "`n🔥 Deploying Web app to Firebase Hosting..." -ForegroundColor Yellow
+cmd /c firebase deploy --only hosting
 if ($LASTEXITCODE -ne 0) {
     Write-Host "⚠️  Firebase deploy had issues, but GitHub Release is up." -ForegroundColor Yellow
 }
