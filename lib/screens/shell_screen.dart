@@ -15,6 +15,11 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:paper_tracker/blocs/paper/paper_bloc.dart';
 import 'package:paper_tracker/blocs/paper/paper_state.dart';
+import 'package:paper_tracker/blocs/academic_profile/academic_profile_bloc.dart';
+import 'package:paper_tracker/blocs/academic_profile/academic_profile_event.dart';
+import 'package:paper_tracker/blocs/academic_profile/academic_profile_state.dart';
+import 'package:paper_tracker/repositories/academic_profile_repository.dart';
+import 'package:paper_tracker/utils/back_handler.dart';
 
 class ShellScreen extends StatefulWidget {
   final Widget child;
@@ -25,8 +30,32 @@ class ShellScreen extends StatefulWidget {
   State<ShellScreen> createState() => _ShellScreenState();
 }
 
-class _ShellScreenState extends State<ShellScreen> {
+class _ShellScreenState extends State<ShellScreen> with WidgetsBindingObserver {
   bool _notificationsStarted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _checkPublications();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkPublications();
+    }
+  }
+
+  void _checkPublications() {
+    AcademicProfileRepository().checkForNewPublications();
+  }
 
   @override
   void didChangeDependencies() {
@@ -56,6 +85,37 @@ class _ShellScreenState extends State<ShellScreen> {
               tooltip: 'Export papers as CSV',
               onPressed: () => _exportPapers(context),
             ),
+          // Refresh & Settings icons (Only visible on Academic Profile tab)
+          if (GoRouterState.of(context).matchedLocation.startsWith('/academic-profile')) ...[
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh Profile',
+              onPressed: () {
+                final state = context.read<AcademicProfileBloc>().state;
+                String orcidId = '';
+                if (state is AcademicProfileLoaded) {
+                  orcidId = state.record.orcidId;
+                } else if (state is AcademicProfileNotAuthorized) {
+                  orcidId = state.orcidId ?? '';
+                }
+                context.read<AcademicProfileBloc>().add(AcademicProfileRefreshRequested(orcidId));
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              tooltip: 'Academic Settings',
+              onPressed: () {
+                final state = context.read<AcademicProfileBloc>().state;
+                String orcidId = '';
+                if (state is AcademicProfileLoaded) {
+                  orcidId = state.record.orcidId;
+                } else if (state is AcademicProfileNotAuthorized) {
+                  orcidId = state.orcidId ?? '';
+                }
+                context.push('/academic-profile/settings', extra: orcidId);
+              },
+            ),
+          ],
           // Profile icon
           IconButton(
             icon: const Icon(Icons.account_circle_outlined),
@@ -88,7 +148,12 @@ class _ShellScreenState extends State<ShellScreen> {
       body: Column(
         children: [
           const ConnectivityBanner(),
-          Expanded(child: widget.child),
+          Expanded(
+            child: DoubleBackExit(
+              message: 'Tap again to exit Paper Tracker',
+              child: widget.child,
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: Container(
@@ -120,6 +185,11 @@ class _ShellScreenState extends State<ShellScreen> {
               activeIcon: Icon(Icons.chat_bubble),
               label: 'Chats',
             ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.school_outlined),
+              activeIcon: Icon(Icons.school),
+              label: 'Academic',
+            ),
           ],
         ),
       ),
@@ -132,6 +202,7 @@ class _ShellScreenState extends State<ShellScreen> {
     if (location.startsWith('/chats') || location.startsWith('/chat')) {
       return 'Chats';
     }
+    if (location.startsWith('/academic-profile')) return 'Academic Profile';
     return 'Dashboard';
   }
 
@@ -139,6 +210,7 @@ class _ShellScreenState extends State<ShellScreen> {
     final location = GoRouterState.of(context).matchedLocation;
     if (location.startsWith('/papers')) return 1;
     if (location.startsWith('/chats') || location.startsWith('/chat')) return 2;
+    if (location.startsWith('/academic-profile')) return 3;
     return 0;
   }
 
@@ -152,6 +224,9 @@ class _ShellScreenState extends State<ShellScreen> {
         break;
       case 2:
         context.go('/chats');
+        break;
+      case 3:
+        context.go('/academic-profile');
         break;
     }
   }

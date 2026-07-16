@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:paper_tracker/blocs/auth/auth_bloc.dart';
 import 'package:paper_tracker/blocs/auth/auth_event.dart';
@@ -13,7 +14,10 @@ import 'package:paper_tracker/config/theme_preset.dart';
 import 'package:paper_tracker/models/notification_model.dart';
 import 'package:paper_tracker/models/paper.dart';
 import 'package:paper_tracker/repositories/auth_repository.dart';
-import 'package:paper_tracker/services/orcid_service.dart';
+import 'package:paper_tracker/blocs/academic_profile/academic_profile_bloc.dart';
+import 'package:paper_tracker/blocs/academic_profile/academic_profile_event.dart';
+import 'package:paper_tracker/screens/academic_profile/orcid_auth_webview.dart';
+import 'package:paper_tracker/services/orcid_auth_service.dart';
 import 'package:paper_tracker/utils/notification_prefs.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -467,46 +471,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
-        clipBehavior: Clip.antiAlias,
-        child: ListTile(
-          leading: Icon(
-            Icons.badge_outlined,
-            color: isConnected
-                ? AppTheme.successColor
-                : Theme.of(context).colorScheme.primary,
-            size: 22,
-          ),
-          title: Text(
-            isConnected ? 'ORCID Connected' : 'Connect ORCID',
-            style: const TextStyle(fontSize: 14),
-          ),
-          subtitle: Text(
-            isConnected ? orcidId : 'Link your ORCID iD',
-            style: TextStyle(
-              fontSize: 12,
-              color: isConnected
-                  ? AppTheme.successColor
-                  : Theme.of(context).textTheme.bodySmall?.color,
-            ),
-          ),
-          trailing: IconButton(
-            icon: Icon(
-              isConnected ? Icons.link_off : Icons.add_link,
-              size: 20,
-            ),
-            color: isConnected
-                ? AppTheme.errorColor
-                : Theme.of(context).colorScheme.primary,
-            onPressed: () => _handleOrcid(isConnected, displayName),
-          ),
-          dense: true,
-          shape: RoundedRectangleBorder(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Material(
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              leading: Icon(
+                Icons.badge_outlined,
+                color: isConnected
+                    ? AppTheme.successColor
+                    : Theme.of(context).colorScheme.primary,
+                size: 22,
+              ),
+              title: Text(
+                isConnected ? 'ORCID Connected' : 'Connect ORCID',
+                style: const TextStyle(fontSize: 14),
+              ),
+              subtitle: Text(
+                isConnected ? orcidId : 'Link your ORCID iD',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isConnected
+                      ? AppTheme.successColor
+                      : Theme.of(context).textTheme.bodySmall?.color,
+                ),
+              ),
+              trailing: IconButton(
+                icon: Icon(
+                  isConnected ? Icons.link_off : Icons.add_link,
+                  size: 20,
+                ),
+                color: isConnected
+                    ? AppTheme.errorColor
+                    : Theme.of(context).colorScheme.primary,
+                onPressed: () => _handleOrcid(isConnected, displayName),
+              ),
+              dense: true,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
-        ),
+          if (isConnected)
+            Padding(
+              padding: const EdgeInsets.only(left: 52, right: 8, bottom: 8),
+              child: TextButton.icon(
+                onPressed: () => context.push('/academic-profile', extra: orcidId),
+                icon: const Icon(Icons.school, size: 16),
+                label: const Text('Open Academic Profile', style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -514,7 +537,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _handleOrcid(bool isConnected, String displayName) async {
     final authRepo = context.read<AuthRepository>();
     if (isConnected) {
+      await OrcidAuthService.disconnect();
       await authRepo.updateOrcidId('');
+      context.read<AcademicProfileBloc>().add(const OrcidDisconnectRequested());
       setState(() => _orcidId = '');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -525,53 +550,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       }
     } else {
-      final orcidId = await showDialog<String>(
-        context: context,
-        builder: (ctx) => _OrcidLinkDialog(initialSearchQuery: displayName),
-      );
-      if (orcidId == null || !mounted) return;
+      await _authorizeOrcid();
+    }
+  }
 
-      // Show loading indicator while verifying
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(children: [
-            SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
-            SizedBox(width: 12),
-            Text('Verifying ORCID iD...'),
-          ]),
-          behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 30),
-        ),
-      );
+  Future<void> _authorizeOrcid() async {
+    final authRepo = context.read<AuthRepository>();
+    final authRequest = OrcidAuthService.prepareAuthorization();
 
-      final result = await OrcidService.fetchProfile(orcidId);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    if (!mounted) return;
+    final result = await Navigator.push<OrcidAuthResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OrcidAuthWebView(authRequest: authRequest),
+      ),
+    );
 
-      if (result.isSuccess) {
-        await authRepo.updateOrcidId(orcidId);
-        setState(() => _orcidId = orcidId);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('ORCID linked — ${result.profile!.displayName}'),
-              backgroundColor: AppTheme.successColor,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          final msg = result.message ?? 'Could not verify ORCID iD';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(msg),
-              backgroundColor: AppTheme.errorColor,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 5),
-            ),
-          );
-        }
+    if (result == null || !mounted) return;
+
+    if (result.isSuccess && result.token != null) {
+      final orcidId = result.token!.orcidId;
+      await authRepo.updateOrcidId(orcidId);
+      setState(() => _orcidId = orcidId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('ORCID authorized — ${result.token!.name ?? orcidId}'),
+            backgroundColor: AppTheme.successColor,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        final msg = result.error ?? 'ORCID authorization failed';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: AppTheme.errorColor,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+          ),
+        );
       }
     }
   }
@@ -937,220 +957,4 @@ const List<String> _accentColorNames = [
   'Red',
   'Indigo',
 ];
-
-class _OrcidLinkDialog extends StatefulWidget {
-  final String initialSearchQuery;
-  const _OrcidLinkDialog({required this.initialSearchQuery});
-
-  @override
-  State<_OrcidLinkDialog> createState() => _OrcidLinkDialogState();
-}
-
-class _OrcidLinkDialogState extends State<_OrcidLinkDialog> {
-  late TextEditingController _controller;
-  bool _isLoading = false;
-  bool _isVerifying = false;
-  List<OrcidProfile> _results = [];
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initialSearchQuery);
-  }
-
-  Future<void> _performSearch() async {
-    final query = _controller.text.trim();
-    if (query.isEmpty) return;
-
-    // Detect ORCID URLs or IDs
-    final cleaned = OrcidService.normalizeId(query);
-    if (RegExp(r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$').hasMatch(cleaned)) {
-      // Direct ID entered — verify it inline
-      setState(() {
-        _isVerifying = true;
-        _error = null;
-      });
-      final result = await OrcidService.fetchProfile(cleaned);
-      if (!mounted) return;
-      if (result.isSuccess) {
-        Navigator.pop(context, cleaned);
-      } else {
-        setState(() {
-          _isVerifying = false;
-          _error = result.message ?? 'Could not verify this ORCID iD';
-        });
-      }
-      return;
-    }
-
-    // Search by name
-    setState(() {
-      _isLoading = true;
-      _error = null;
-      _results = [];
-    });
-
-    try {
-      final results = await OrcidService.searchProfiles(query);
-      if (mounted) {
-        setState(() {
-          _results = results;
-          _isLoading = false;
-          if (results.isEmpty) {
-            _error = 'No ORCID profiles found for "$query".\nTry entering the ORCID iD directly (e.g. 0000-0002-1825-0097).';
-          }
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _error = 'Search failed. Try entering the ORCID iD directly.';
-        });
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        constraints: const BoxConstraints(maxHeight: 520, maxWidth: 420),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.link, color: theme.colorScheme.primary),
-                const SizedBox(width: 8),
-                Text(
-                  'Link ORCID iD',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: theme.colorScheme.primary),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Enter your ORCID iD (e.g. 0000-0002-1825-0097)\nor paste your full ORCID URL.',
-              style: TextStyle(fontSize: 13, color: theme.textTheme.bodySmall?.color),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _controller,
-              decoration: InputDecoration(
-                hintText: 'Name or 0000-0000-0000-0000',
-                prefixIcon: const Icon(Icons.search),
-                isDense: true,
-                suffixIcon: _controller.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          _controller.clear();
-                          setState(() {
-                            _error = null;
-                            _results = [];
-                          });
-                        },
-                      )
-                    : null,
-              ),
-              onSubmitted: (_) => _performSearch(),
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 36,
-              child: FilledButton.icon(
-                onPressed: _isLoading || _isVerifying ? null : _performSearch,
-                icon: _isLoading || _isVerifying
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.arrow_forward, size: 18),
-                label: Text(_isVerifying ? 'Verifying...' : 'Look up'),
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (_isLoading || _isVerifying)
-              const Expanded(
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_error != null)
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.info_outline, size: 32, color: theme.colorScheme.error),
-                          const SizedBox(height: 8),
-                          Text(
-                            _error!,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: theme.colorScheme.error, fontSize: 13),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            else if (_results.isNotEmpty)
-              Expanded(
-                child: ListView.separated(
-                  itemCount: _results.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final profile = _results[index];
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                      title: Text(profile.displayName, style: const TextStyle(fontWeight: FontWeight.w500)),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(profile.orcidId, style: TextStyle(color: theme.colorScheme.primary, fontSize: 12)),
-                          if (profile.institution != null)
-                            Text(profile.institution!, style: TextStyle(fontSize: 12, color: theme.textTheme.bodySmall?.color), maxLines: 1, overflow: TextOverflow.ellipsis),
-                        ],
-                      ),
-                      onTap: () => Navigator.pop(context, profile.orcidId),
-                    );
-                  },
-                ),
-              )
-            else
-              const Expanded(
-                child: Center(
-                  child: Text(
-                    'Search by name above, or paste your ORCID iD',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 13),
-                  ),
-                ),
-              ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 

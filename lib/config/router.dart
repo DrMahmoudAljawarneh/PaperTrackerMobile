@@ -17,6 +17,12 @@ import 'package:paper_tracker/screens/notifications/notifications_screen.dart';
 import 'package:paper_tracker/screens/profile/profile_screen.dart';
 import 'package:paper_tracker/screens/shell_screen.dart';
 import 'package:paper_tracker/screens/onboarding/onboarding_screen.dart';
+import 'package:paper_tracker/screens/academic_profile/academic_profile_screen.dart';
+import 'package:paper_tracker/screens/academic_profile/publications_screen.dart';
+import 'package:paper_tracker/screens/academic_profile/employment_screen.dart';
+import 'package:paper_tracker/screens/academic_profile/education_screen.dart';
+import 'package:paper_tracker/screens/academic_profile/funding_screen.dart';
+import 'package:paper_tracker/screens/academic_profile/settings_screen.dart';
 import 'package:paper_tracker/models/paper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -24,13 +30,9 @@ final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
 GoRouter createRouter(AuthBloc authBloc) {
-  // Cache onboarding flag in memory to avoid SharedPreferences disk reads on every redirect
-  bool? onboardingCached;
   Future<bool> getOnboardingCached() async {
-    if (onboardingCached != null) return onboardingCached!;
     final prefs = await SharedPreferences.getInstance();
-    onboardingCached = prefs.getBool('onboarding_completed') ?? false;
-    return onboardingCached!;
+    return prefs.getBool('onboarding_completed') ?? false;
   }
 
   return GoRouter(
@@ -95,6 +97,13 @@ GoRouter createRouter(AuthBloc authBloc) {
             path: '/chats',
             builder: (context, state) => const ChatListScreen(),
           ),
+          GoRoute(
+            path: '/academic-profile',
+            builder: (context, state) {
+              final orcidId = state.extra as String? ?? '';
+              return AcademicProfileScreen(orcidId: orcidId);
+            },
+          ),
         ],
       ),
       GoRoute(
@@ -145,6 +154,34 @@ GoRouter createRouter(AuthBloc authBloc) {
         path: '/profile',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: '/academic-profile/publications',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const PublicationsScreen(),
+      ),
+      GoRoute(
+        path: '/academic-profile/employment',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const EmploymentScreen(),
+      ),
+      GoRoute(
+        path: '/academic-profile/education',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const EducationScreen(),
+      ),
+      GoRoute(
+        path: '/academic-profile/funding',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const FundingScreen(),
+      ),
+      GoRoute(
+        path: '/academic-profile/settings',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final orcidId = state.extra as String? ?? '';
+          return AcademicSettingsScreen(currentOrcidId: orcidId);
+        },
       ),
     ],
   );

@@ -1,5 +1,5 @@
 {
-    "version":  "2.0.0",
-    "apkUrl":  "https://github.com/DrMahmoudAljawarneh/PaperTrackerMobile/releases/download/v2.0.0/app-release.apk",
-    "releaseNotes":  "Added sharing category filters (All, Shared by me, Shared with me, Private) and dynamic colleague dropdown filtering."
+    "version":  "2.1.1",
+    "apkUrl":  "https://github.com/DrMahmoudAljawarneh/PaperTrackerMobile/releases/download/v2.1.1/app-release.apk",
+    "releaseNotes":  "Massive UI overhaul! Redesigned the Academic Profile with a publications chart and glassmorphism styling. Overhauled the Papers page with an advanced filter bottom sheet, status tab headers, and active filter badges. Added automated Firebase cloud backups for ORCID profiles and periodic new paper notifications."
 }

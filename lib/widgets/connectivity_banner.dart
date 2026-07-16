@@ -11,7 +11,7 @@ class ConnectivityBanner extends StatefulWidget {
 class _ConnectivityBannerState extends State<ConnectivityBanner> with SingleTickerProviderStateMixin {
   static Stream<DatabaseEvent>? _sharedStream;
   Stream<DatabaseEvent> get _connectivityStream {
-    _sharedStream ??= FirebaseDatabase.instance.ref('.info/connected').onValue;
+    _sharedStream ??= FirebaseDatabase.instance.ref('.info/connected').onValue.asBroadcastStream();
     return _sharedStream!;
   }
   late AnimationController _animController;

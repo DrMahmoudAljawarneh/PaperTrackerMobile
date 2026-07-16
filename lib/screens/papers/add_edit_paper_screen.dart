@@ -12,6 +12,7 @@ import 'package:paper_tracker/models/user_model.dart';
 import 'package:paper_tracker/repositories/auth_repository.dart';
 import 'package:paper_tracker/repositories/paper_repository.dart';
 import 'package:paper_tracker/services/metadata_service.dart';
+import 'package:paper_tracker/utils/back_handler.dart';
 
 class AddEditPaperScreen extends StatefulWidget {
   final String? paperId;
@@ -46,13 +47,36 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
   bool _isImporting = false;
   Paper? _existingPaper;
   bool _isLoading = false;
+  bool _hasUnsavedChanges = false;
+  bool _readyForDirtyTracking = false;
   Timer? _searchDebounce;
 
   @override
   void initState() {
     super.initState();
+    for (final c in [
+      _titleController,
+      _abstractController,
+      _venueController,
+      _tagController,
+      _authorController,
+      _collaboratorController,
+      _currentlyWithController,
+      _importController,
+    ]) {
+      c.addListener(_markDirty);
+    }
     if (widget.isEditing) {
       _loadPaper();
+    } else {
+      _readyForDirtyTracking = true;
+    }
+  }
+
+  void _markDirty() {
+    if (!_readyForDirtyTracking) return;
+    if (!_hasUnsavedChanges) {
+      setState(() => _hasUnsavedChanges = true);
     }
   }
 
@@ -85,9 +109,11 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
         _collaborators = collabs;
         _currentlyWithController.text = paper.currentlyWith;
         _isLoading = false;
+        _readyForDirtyTracking = true;
       });
     } else {
       setState(() => _isLoading = false);
+      _readyForDirtyTracking = true;
     }
   }
 
@@ -127,9 +153,11 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Form(
+      body: ConfirmExit(
+        hasUnsavedChanges: _hasUnsavedChanges,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Form(
               key: _formKey,
               child: ListView(
                 padding: const EdgeInsets.all(20),
@@ -271,6 +299,7 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
                 ],
               ),
             ),
+          ),
     );
   }
 
@@ -684,6 +713,7 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
             currentUserName: authState.user.displayName ?? '',
           ));
     }
+    _hasUnsavedChanges = false;
     context.pop();
   }
 

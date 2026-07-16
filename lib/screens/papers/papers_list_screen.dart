@@ -174,6 +174,57 @@ class _PapersListScreenState extends State<PapersListScreen> {
     return filtered;
   }
 
+  Widget _buildFilterButton() {
+    final theme = Theme.of(context);
+    final count = _activeAdvancedFiltersCount;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          style: IconButton.styleFrom(
+            backgroundColor: theme.cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: theme.dividerColor.withValues(alpha: 0.5),
+              ),
+            ),
+          ),
+          icon: Icon(Icons.tune_rounded, color: theme.colorScheme.primary),
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            _showFilterBottomSheet(context);
+          },
+        ),
+        if (count > 0)
+          Positioned(
+            right: -4,
+            top: -4,
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.error,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 16,
+                minHeight: 16,
+              ),
+              child: Text(
+                '$count',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -186,56 +237,38 @@ class _PapersListScreenState extends State<PapersListScreen> {
       ),
       body: Column(
         children: [
-          // Search bar
+          // Search & Filter row
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) => setState(() => _searchQuery = value),
-              decoration: InputDecoration(
-                hintText: 'Search papers, venues, tags...',
-                prefixIcon: const Icon(Icons.search, size: 20),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => _searchQuery = '');
-                        },
-                      )
-                    : null,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-
-          // Sharing filter chips
-          SizedBox(
-            height: 38,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
               children: [
-                ..._SharingFilter.values.map((filter) => _buildSharingChip(filter)),
-                if (_collaborators.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Center(
-                      child: Container(
-                        width: 1,
-                        height: 20,
-                        color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
-                      ),
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) => setState(() => _searchQuery = value),
+                    decoration: InputDecoration(
+                      hintText: 'Search papers, venues, tags...',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            )
+                          : null,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
                     ),
                   ),
-                  _buildColleagueDropdownChip(),
-                ],
+                ),
+                const SizedBox(width: 8),
+                _buildFilterButton(),
               ],
             ),
           ),
-          const SizedBox(height: 6),
 
-          // Status filter chips
+          // Status segmented tabs
           SizedBox(
             height: 38,
             child: ListView(
@@ -252,51 +285,36 @@ class _PapersListScreenState extends State<PapersListScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
 
-          // Priority filter + Sort dropdown
+          // Active filter badges (Priority, Sharing, Collaborators)
+          _buildActiveFiltersBadges(),
+
+          // Sort option selection
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                // Priority chips
-                Expanded(
-                  child: SizedBox(
-                    height: 32,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        _buildPriorityChip('Any', null),
-                        _buildPriorityChip('🔴 High', PaperPriority.high),
-                        _buildPriorityChip('🟡 Medium', PaperPriority.medium),
-                        _buildPriorityChip('🟢 Low', PaperPriority.low),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Sort dropdown
                 PopupMenuButton<_SortOption>(
                   initialValue: _sortOption,
                   onSelected: (v) => setState(() => _sortOption = v),
                   tooltip: 'Sort by',
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                          color: Theme.of(context).dividerColor.withValues(alpha: 0.5)),
+                        color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(_sortOption.icon,
-                            size: 14, color: Theme.of(context).colorScheme.primary),
+                        Icon(_sortOption.icon, size: 14, color: Theme.of(context).colorScheme.primary),
                         const SizedBox(width: 4),
-                        Icon(Icons.arrow_drop_down,
-                            size: 16, color: Theme.of(context).textTheme.bodySmall?.color),
+                        Icon(Icons.arrow_drop_down, size: 16, color: Theme.of(context).textTheme.bodySmall?.color),
                       ],
                     ),
                   ),
@@ -326,7 +344,7 @@ class _PapersListScreenState extends State<PapersListScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
 
           // Papers list
           Expanded(
@@ -537,144 +555,7 @@ class _PapersListScreenState extends State<PapersListScreen> {
     });
   }
 
-  Widget _buildSharingChip(_SharingFilter filter) {
-    final isSelected = _selectedSharing == filter;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(filter.label, style: const TextStyle(fontSize: 12)),
-        selected: isSelected,
-        onSelected: (selected) {
-          HapticFeedback.lightImpact();
-          setState(() {
-            if (selected) {
-              _selectedSharing = filter;
-            }
-          });
-        },
-        backgroundColor: Theme.of(context).cardColor,
-        selectedColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
-        checkmarkColor: Theme.of(context).colorScheme.primary,
-        side: BorderSide(
-          color: isSelected
-              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)
-              : Colors.transparent,
-        ),
-        visualDensity: VisualDensity.compact,
-      ),
-    );
-  }
 
-  Widget _buildColleagueDropdownChip() {
-    final isSelected = _selectedCollaboratorId != null;
-    final selectedColleague = _selectedCollaboratorId != null
-        ? _collaborators.firstWhere(
-            (c) => c.uid == _selectedCollaboratorId,
-            orElse: () => UserModel(
-              uid: '',
-              email: '',
-              displayName: 'Unknown',
-              photoUrl: '',
-              createdAt: DateTime.now(),
-            ),
-          )
-        : null;
-
-    final labelText = selectedColleague != null
-        ? (selectedColleague.displayName.isNotEmpty
-            ? selectedColleague.displayName
-            : selectedColleague.email)
-        : 'Any Colleague';
-
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: PopupMenuButton<String?>(
-        initialValue: _selectedCollaboratorId,
-        onSelected: (colleagueId) {
-          HapticFeedback.lightImpact();
-          setState(() {
-            _selectedCollaboratorId = colleagueId;
-          });
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.25)
-                : Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isSelected
-                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)
-                  : Theme.of(context).dividerColor.withValues(alpha: 0.3),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Colleague: $labelText',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).textTheme.bodyMedium?.color,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.arrow_drop_down,
-                size: 16,
-                color: isSelected
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).textTheme.bodySmall?.color,
-              ),
-            ],
-          ),
-        ),
-        itemBuilder: (context) {
-          return [
-            PopupMenuItem<String?>(
-              value: null,
-              child: Row(
-                children: [
-                  Icon(Icons.people_outline, size: 16, color: Theme.of(context).textTheme.bodySmall?.color),
-                  const SizedBox(width: 8),
-                  Text('Any Colleague', style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface)),
-                ],
-              ),
-            ),
-            ..._collaborators.map((c) {
-              final name = c.displayName.isNotEmpty ? c.displayName : c.email;
-              final isThisSelected = c.uid == _selectedCollaboratorId;
-              return PopupMenuItem<String?>(
-                value: c.uid,
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.person,
-                      size: 16,
-                      color: isThisSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).textTheme.bodySmall?.color,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      name,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: isThisSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
-                        fontWeight: isThisSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ];
-        },
-      ),
-    );
-  }
 
   Widget _buildStatusChip(String label, PaperStatus? status) {
     final isSelected = _selectedStatus == status;
@@ -703,39 +584,268 @@ class _PapersListScreenState extends State<PapersListScreen> {
     );
   }
 
-  Widget _buildPriorityChip(String label, PaperPriority? priority) {
-    final isSelected = _selectedPriority == priority;
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: GestureDetector(
-        onTap: () {
-          HapticFeedback.lightImpact();
-          setState(() => _selectedPriority = isSelected ? null : priority);
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? Theme.of(context).colorScheme.secondary.withValues(alpha: 0.2)
-                : Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isSelected
-                  ? Theme.of(context).colorScheme.secondary.withValues(alpha: 0.5)
-                  : Colors.transparent,
+
+
+  int get _activeAdvancedFiltersCount {
+    var count = 0;
+    if (_selectedPriority != null) count++;
+    if (_selectedSharing != _SharingFilter.all) count++;
+    if (_selectedCollaboratorId != null) count++;
+    return count;
+  }
+
+  Widget _buildActiveFiltersBadges() {
+    final activePriority = _selectedPriority;
+    final activeSharing = _selectedSharing;
+    final activeColleagueId = _selectedCollaboratorId;
+
+    if (activePriority == null &&
+        activeSharing == _SharingFilter.all &&
+        activeColleagueId == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      height: 36,
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        children: [
+          if (activePriority != null)
+            _buildDismissibleBadge(
+              label: 'Priority: ${activePriority.name.toUpperCase()}',
+              onDismiss: () => setState(() => _selectedPriority = null),
             ),
-          ),
-          child: Text(
+          if (activeSharing != _SharingFilter.all)
+            _buildDismissibleBadge(
+              label: 'Sharing: ${activeSharing.label}',
+              onDismiss: () => setState(() => _selectedSharing = _SharingFilter.all),
+            ),
+          if (activeColleagueId != null)
+            _buildDismissibleBadge(
+              label: 'Colleague: ${_getColleagueName(activeColleagueId)}',
+              onDismiss: () => setState(() => _selectedCollaboratorId = null),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _getColleagueName(String id) {
+    final c = _collaborators.firstWhere((col) => col.uid == id, orElse: () => UserModel(uid: '', email: '', displayName: 'Unknown', photoUrl: '', createdAt: DateTime.now()));
+    return c.displayName.isNotEmpty ? c.displayName : c.email;
+  }
+
+  Widget _buildDismissibleBadge({required String label, required VoidCallback onDismiss}) {
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
             label,
             style: TextStyle(
               fontSize: 11,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              color: isSelected ? Theme.of(context).colorScheme.secondary : Theme.of(context).textTheme.bodyMedium?.color,
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              onDismiss();
+            },
+            child: Icon(
+              Icons.close,
+              size: 14,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  void _showFilterBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final theme = Theme.of(context);
+            return DraggableScrollableSheet(
+              initialChildSize: 0.6,
+              minChildSize: 0.4,
+              maxChildSize: 0.9,
+              expand: false,
+              builder: (context, scrollController) {
+                return SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: theme.dividerColor,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Filter Papers',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setSheetState(() {
+                                _selectedPriority = null;
+                                _selectedSharing = _SharingFilter.all;
+                                _selectedCollaboratorId = null;
+                              });
+                              setState(() {});
+                            },
+                            child: const Text('Reset All'),
+                          ),
+                        ],
+                      ),
+                      const Divider(),
+                      const SizedBox(height: 12),
+                      
+                      const Text(
+                        'Priority',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          _buildSheetPriorityChip(setSheetState, '🔴 High', PaperPriority.high),
+                          _buildSheetPriorityChip(setSheetState, '🟡 Medium', PaperPriority.medium),
+                          _buildSheetPriorityChip(setSheetState, '🟢 Low', PaperPriority.low),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+
+                      const Text(
+                        'Sharing Status',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        children: _SharingFilter.values.map((filter) {
+                          final isSelected = _selectedSharing == filter;
+                          return ChoiceChip(
+                            label: Text(filter.label, style: const TextStyle(fontSize: 12)),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              setSheetState(() {
+                                if (selected) _selectedSharing = filter;
+                              });
+                              setState(() {});
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 20),
+
+                      if (_collaborators.isNotEmpty) ...[
+                        const Text(
+                          'Collaborator',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 10),
+                        DropdownButtonFormField<String?>(
+                          initialValue: _selectedCollaboratorId,
+                          decoration: InputDecoration(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          items: [
+                            const DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text('Any Colleague', style: TextStyle(fontSize: 13)),
+                            ),
+                            ..._collaborators.map((c) {
+                              final name = c.displayName.isNotEmpty ? c.displayName : c.email;
+                              return DropdownMenuItem<String?>(
+                                value: c.uid,
+                                child: Text(name, style: const TextStyle(fontSize: 13)),
+                              );
+                            }),
+                          ],
+                          onChanged: (val) {
+                            setSheetState(() {
+                              _selectedCollaboratorId = val;
+                            });
+                            setState(() {});
+                          },
+                        ),
+                        const SizedBox(height: 30),
+                      ],
+
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          child: const Text('Apply Filters'),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSheetPriorityChip(StateSetter setSheetState, String label, PaperPriority priority) {
+    final isSelected = _selectedPriority == priority;
+    return ChoiceChip(
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      selected: isSelected,
+      onSelected: (selected) {
+        setSheetState(() {
+          _selectedPriority = selected ? priority : null;
+        });
+        setState(() {});
+      },
     );
   }
 }

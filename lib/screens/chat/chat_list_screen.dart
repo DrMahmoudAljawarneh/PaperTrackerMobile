@@ -118,9 +118,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
         }
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Chats'),
-        ),
         body: BlocBuilder<ChatListBloc, ChatListState>(
           builder: (context, state) {
             if (state is ChatListLoading) {

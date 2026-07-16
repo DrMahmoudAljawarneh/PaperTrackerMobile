@@ -7,6 +7,7 @@ import 'package:paper_tracker/blocs/notification/notification_bloc.dart';
 import 'package:paper_tracker/blocs/paper/paper_bloc.dart';
 import 'package:paper_tracker/blocs/task/task_bloc.dart';
 import 'package:paper_tracker/blocs/theme/theme_cubit.dart';
+import 'package:paper_tracker/blocs/academic_profile/academic_profile_bloc.dart';
 import 'package:paper_tracker/config/router.dart';
 import 'package:paper_tracker/config/theme.dart';
 
@@ -17,6 +18,7 @@ import 'package:paper_tracker/repositories/paper_repository.dart';
 import 'package:paper_tracker/repositories/status_history_repository.dart';
 import 'package:paper_tracker/repositories/task_repository.dart';
 import 'package:paper_tracker/repositories/chat_repository.dart';
+import 'package:paper_tracker/repositories/academic_profile_repository.dart';
 import 'package:paper_tracker/services/notification_service.dart';
 import 'package:paper_tracker/blocs/chat_list/chat_list_bloc.dart';
 import 'package:paper_tracker/blocs/chat_detail/chat_detail_bloc.dart';
@@ -40,6 +42,7 @@ class PaperTrackerApp extends StatelessWidget {
     );
     final chatRepository = ChatRepository();
     final statusHistoryRepository = StatusHistoryRepository();
+    final academicProfileRepository = AcademicProfileRepository();
 
     return MultiRepositoryProvider(
       providers: [
@@ -83,6 +86,11 @@ class PaperTrackerApp extends StatelessWidget {
             create: (_) => NotificationBloc(
               notificationRepository: notificationRepository,
               notificationService: NotificationService(),
+            ),
+          ),
+          BlocProvider(
+            create: (_) => AcademicProfileBloc(
+              repository: academicProfileRepository,
             ),
           ),
         ],
