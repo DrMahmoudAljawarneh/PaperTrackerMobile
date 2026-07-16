@@ -6,12 +6,15 @@ import 'package:paper_tracker/blocs/dashboard/dashboard_bloc.dart';
 import 'package:paper_tracker/blocs/notification/notification_bloc.dart';
 import 'package:paper_tracker/blocs/paper/paper_bloc.dart';
 import 'package:paper_tracker/blocs/task/task_bloc.dart';
+import 'package:paper_tracker/blocs/theme/theme_cubit.dart';
 import 'package:paper_tracker/config/router.dart';
 import 'package:paper_tracker/config/theme.dart';
+
 import 'package:paper_tracker/repositories/auth_repository.dart';
 import 'package:paper_tracker/repositories/comment_repository.dart';
 import 'package:paper_tracker/repositories/notification_repository.dart';
 import 'package:paper_tracker/repositories/paper_repository.dart';
+import 'package:paper_tracker/repositories/status_history_repository.dart';
 import 'package:paper_tracker/repositories/task_repository.dart';
 import 'package:paper_tracker/repositories/chat_repository.dart';
 import 'package:paper_tracker/services/notification_service.dart';
@@ -36,6 +39,7 @@ class PaperTrackerApp extends StatelessWidget {
       notificationRepository: notificationRepository,
     );
     final chatRepository = ChatRepository();
+    final statusHistoryRepository = StatusHistoryRepository();
 
     return MultiRepositoryProvider(
       providers: [
@@ -49,11 +53,17 @@ class PaperTrackerApp extends StatelessWidget {
       child: MultiBlocProvider(
         providers: [
           BlocProvider(
+            create: (_) => ThemeCubit()..load(),
+          ),
+          BlocProvider(
             create: (_) => AuthBloc(authRepository: authRepository)
               ..add(AuthCheckRequested()),
           ),
           BlocProvider(
-            create: (_) => PaperBloc(paperRepository: paperRepository),
+            create: (_) => PaperBloc(
+              paperRepository: paperRepository,
+              statusHistoryRepository: statusHistoryRepository,
+            ),
           ),
           BlocProvider(
             create: (_) => TaskBloc(taskRepository: taskRepository),
@@ -61,7 +71,6 @@ class PaperTrackerApp extends StatelessWidget {
           BlocProvider(
             create: (_) => DashboardBloc(
               paperRepository: paperRepository,
-              taskRepository: taskRepository,
             ),
           ),
           BlocProvider(
@@ -82,12 +91,22 @@ class PaperTrackerApp extends StatelessWidget {
             final authBloc = context.read<AuthBloc>();
             final router = createRouter(authBloc);
 
-            return MaterialApp.router(
-              title: 'Paper Tracker',
-              debugShowCheckedModeBanner: false,
-              theme: AppTheme.darkTheme,
-              routerConfig: router,
-              builder: (context, child) => SelectionArea(child: child!),
+            return BlocBuilder<ThemeCubit, ThemeState>(
+              builder: (context, themeState) {
+                final accent = themeState.customAccentValue != null
+                    ? Color(themeState.customAccentValue!)
+                    : null;
+                return MaterialApp.router(
+                  title: 'Paper Tracker',
+                  debugShowCheckedModeBanner: false,
+                  theme: AppTheme.getTheme(themeState.preset, Brightness.light,
+                      customAccent: accent),
+                  darkTheme: AppTheme.getTheme(themeState.preset, Brightness.dark,
+                      customAccent: accent),
+                  themeMode: themeState.mode,
+                  routerConfig: router,
+                );
+              },
             );
           },
         ),

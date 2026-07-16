@@ -40,6 +40,24 @@ class Comment extends Equatable {
     );
   }
 
+  Comment copyWith({
+    String? id,
+    String? paperId,
+    String? authorId,
+    String? authorName,
+    String? text,
+    DateTime? createdAt,
+  }) {
+    return Comment(
+      id: id ?? this.id,
+      paperId: paperId ?? this.paperId,
+      authorId: authorId ?? this.authorId,
+      authorName: authorName ?? this.authorName,
+      text: text ?? this.text,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
   @override
   List<Object?> get props =>
       [id, paperId, authorId, authorName, text, createdAt];

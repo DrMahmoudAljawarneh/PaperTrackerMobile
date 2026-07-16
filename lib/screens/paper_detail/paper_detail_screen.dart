@@ -4,15 +4,17 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:paper_tracker/blocs/paper/paper_bloc.dart';
 import 'package:paper_tracker/blocs/paper/paper_event.dart';
+import 'package:paper_tracker/blocs/paper/paper_state.dart';
 import 'package:paper_tracker/config/theme.dart';
 import 'package:paper_tracker/models/paper.dart';
+import 'package:paper_tracker/models/submission_entry.dart';
 import 'package:paper_tracker/models/user_model.dart';
 import 'package:paper_tracker/blocs/auth/auth_bloc.dart';
 import 'package:paper_tracker/blocs/auth/auth_state.dart';
 import 'package:paper_tracker/repositories/auth_repository.dart';
-import 'package:paper_tracker/repositories/paper_repository.dart';
 import 'package:paper_tracker/screens/paper_detail/tasks_tab.dart';
 import 'package:paper_tracker/screens/paper_detail/comments_tab.dart';
+import 'package:paper_tracker/screens/paper_detail/history_tab.dart';
 import 'package:paper_tracker/widgets/deadline_countdown.dart';
 import 'package:paper_tracker/widgets/status_badge.dart';
 
@@ -32,7 +34,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -41,18 +43,48 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
     super.dispose();
   }
 
+  void _confirmDeletePaper(BuildContext context, String paperId) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Paper'),
+        content: const Text(
+            'Are you sure you want to delete this paper? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              context.read<PaperBloc>().add(PaperDeleteRequested(paperId));
+              context.pop();
+            },
+            child: Text(
+              'Delete',
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<Paper?>(
-      stream: context.read<PaperRepository>().streamPaper(widget.paperId),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+    return BlocBuilder<PaperBloc, PaperState>(
+      builder: (context, state) {
+        final paper = state is PapersLoaded
+            ? state.papers.where((p) => p.id == widget.paperId).firstOrNull
+            : null;
+
+        if (state is PaperInitial || (state is PaperLoading && paper == null)) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        final paper = snapshot.data;
         if (paper == null) {
           return Scaffold(
             appBar: AppBar(),
@@ -68,6 +100,10 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
                 icon: const Icon(Icons.edit_outlined),
                 onPressed: () => context.push('/papers/edit/${paper.id}'),
               ),
+              IconButton(
+                icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+                onPressed: () => _confirmDeletePaper(context, paper.id),
+              ),
             ],
           ),
           body: Column(
@@ -80,7 +116,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: AppTheme.dividerColor.withOpacity(0.5),
+                      color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
                     ),
                   ),
                 ),
@@ -90,6 +126,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
                     Tab(text: 'Overview'),
                     Tab(text: 'Tasks'),
                     Tab(text: 'Comments'),
+                    Tab(text: 'History'),
                   ],
                 ),
               ),
@@ -102,6 +139,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
                     _buildOverviewTab(paper),
                     TasksTab(paperId: widget.paperId),
                     CommentsTab(paperId: widget.paperId),
+                    HistoryTab(paperId: widget.paperId),
                   ],
                 ),
               ),
@@ -113,19 +151,35 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
   }
 
   Widget _buildHeader(Paper paper) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
-        border: Border(
-          bottom: BorderSide(
-            color: AppTheme.dividerColor.withOpacity(0.3),
+    return Hero(
+      tag: 'paper-card-${paper.id}',
+      flightShuttleBuilder: (
+        flightContext,
+        animation,
+        flightDirection,
+        fromHeroContext,
+        toHeroContext,
+      ) {
+        return Material(
+          color: Colors.transparent,
+          child: toHeroContext.widget,
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          border: Border(
+            bottom: BorderSide(
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
+            ),
           ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        child: Material(
+          color: Colors.transparent,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           // Status + Priority row
           Row(
             children: [
@@ -147,14 +201,16 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.school_outlined,
-                    size: 16, color: AppTheme.textMuted),
+                Icon(Icons.school_outlined,
+                    size: 16, color: Theme.of(context).textTheme.bodySmall?.color),
                 const SizedBox(width: 6),
-                Text(
-                  paper.targetVenue,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 14,
+                Expanded(
+                  child: Text(
+                    paper.targetVenue,
+                    style: TextStyle(
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ],
@@ -167,14 +223,14 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.people_outline,
-                    size: 16, color: AppTheme.textMuted),
+                Icon(Icons.people_outline,
+                    size: 16, color: Theme.of(context).textTheme.bodySmall?.color),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     paper.authors.join(', '),
-                    style: const TextStyle(
-                      color: AppTheme.textSecondary,
+                    style: TextStyle(
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
                       fontSize: 14,
                     ),
                   ),
@@ -194,14 +250,14 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.person_pin_outlined,
-                    size: 16, color: AppTheme.textMuted),
+                Icon(Icons.person_pin_outlined,
+                    size: 16, color: Theme.of(context).textTheme.bodySmall?.color),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     'Currently with: ${paper.currentlyWith}',
-                    style: const TextStyle(
-                      color: AppTheme.accentColor,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.secondary,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
@@ -216,15 +272,17 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
           _buildStatusTransition(paper),
         ],
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 
   Widget _buildPriorityChip(PaperPriority priority) {
     final color = AppTheme.priorityColor(priority);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
@@ -265,10 +323,10 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: isActive ? color.withOpacity(0.2) : Colors.transparent,
+                color: isActive ? color.withValues(alpha: 0.2) : Colors.transparent,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: isActive ? color : AppTheme.dividerColor,
+                  color: isActive ? color : Theme.of(context).dividerColor,
                   width: isActive ? 1.5 : 1,
                 ),
               ),
@@ -276,7 +334,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
                 '${status.emoji} ${status.label}',
                 style: TextStyle(
                   fontSize: 11,
-                  color: isActive ? color : AppTheme.textMuted,
+                  color: isActive ? color : Theme.of(context).textTheme.bodySmall?.color,
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                 ),
               ),
@@ -287,10 +345,271 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
     );
   }
 
+  Widget _buildSubmissionEntry(SubmissionEntry entry) {
+    final outcomeColor = switch (entry.outcome) {
+      SubmissionOutcome.accepted => AppTheme.successColor,
+      SubmissionOutcome.rejected => AppTheme.errorColor,
+      SubmissionOutcome.underReview => AppTheme.warningColor,
+      SubmissionOutcome.withdrawn => AppTheme.textMuted,
+      SubmissionOutcome.other => AppTheme.primaryColor,
+    };
+    final outcomeIcon = switch (entry.outcome) {
+      SubmissionOutcome.accepted => Icons.check_circle,
+      SubmissionOutcome.rejected => Icons.cancel,
+      SubmissionOutcome.underReview => Icons.schedule,
+      SubmissionOutcome.withdrawn => Icons.remove_circle_outline,
+      SubmissionOutcome.other => Icons.help_outline,
+    };
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: outcomeColor.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(outcomeIcon, size: 20, color: outcomeColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.venueName,
+                  style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${DateFormat('MMM d, yyyy').format(entry.submissionDate)}  •  ${entry.outcome.name}',
+                  style: TextStyle(fontSize: 12, color: outcomeColor),
+                ),
+                if (entry.notes != null && entry.notes!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      entry.notes!,
+                      style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showAddSubmissionDialog(Paper paper) async {
+    final venueController = TextEditingController();
+    DateTime selectedDate = DateTime.now();
+    SubmissionOutcome selectedOutcome = SubmissionOutcome.underReview;
+    final notesController = TextEditingController();
+
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 16,
+                right: 16,
+                top: 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 32, height: 4,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).dividerColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text('Add Submission', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: venueController,
+                    decoration: const InputDecoration(
+                      labelText: 'Venue Name',
+                      hintText: 'e.g. NeurIPS 2025',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2030),
+                      );
+                      if (date != null) setSheetState(() => selectedDate = date);
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Submission Date',
+                        border: OutlineInputBorder(),
+                        suffixIcon: Icon(Icons.calendar_today),
+                      ),
+                      child: Text(DateFormat('MMM d, yyyy').format(selectedDate)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<SubmissionOutcome>(
+                    value: selectedOutcome,
+                    decoration: const InputDecoration(
+                      labelText: 'Outcome',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: SubmissionOutcome.values.map((o) => DropdownMenuItem(
+                      value: o,
+                      child: Text(o.name),
+                    )).toList(),
+                    onChanged: (v) {
+                      if (v != null) setSheetState(() => selectedOutcome = v);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: notesController,
+                    decoration: const InputDecoration(
+                      labelText: 'Notes (optional)',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(sheetContext, false),
+                        child: const Text('Cancel'),
+                      ),
+                      const Spacer(),
+                      ElevatedButton(
+                        onPressed: () {
+                          if (venueController.text.trim().isEmpty) return;
+                          Navigator.pop(sheetContext, true);
+                        },
+                        child: const Text('Add'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    venueController.dispose();
+    notesController.dispose();
+
+    if (result != true) return;
+
+    final newSubmission = SubmissionEntry(
+      venueName: venueController.text.trim(),
+      submissionDate: selectedDate,
+      outcome: selectedOutcome,
+      notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
+    );
+
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthAuthenticated) {
+      final updated = paper.copyWith(
+        submissions: [...paper.submissions, newSubmission],
+        updatedAt: DateTime.now(),
+      );
+      context.read<PaperBloc>().add(PaperUpdateRequested(
+        updated,
+        currentUserId: authState.user.uid,
+        currentUserName: authState.user.displayName,
+      ));
+    }
+  }
+
   Widget _buildOverviewTab(Paper paper) {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
+        // Submission Log
+        _buildSectionTitle('Submission Log'),
+        const SizedBox(height: 8),
+        ...paper.submissions.map((s) => _buildSubmissionEntry(s)),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: OutlinedButton.icon(
+            onPressed: () => _showAddSubmissionDialog(paper),
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Add Submission'),
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // Private Notes
+        _buildSectionTitle('Private Notes'),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: TextField(
+            key: ValueKey('notes_${paper.id}'),
+            controller: TextEditingController.fromValue(
+              TextEditingValue(
+                text: paper.notes,
+                selection: TextSelection.collapsed(offset: paper.notes.length),
+              ),
+            ),
+            maxLines: 5,
+            minLines: 3,
+            decoration: const InputDecoration(
+              hintText: 'Add private notes about this paper...',
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
+            ),
+            textCapitalization: TextCapitalization.sentences,
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.5,
+              color: Theme.of(context).textTheme.bodyMedium?.color,
+            ),
+            onChanged: (value) {
+              if (value != paper.notes) {
+                final authState = context.read<AuthBloc>().state;
+                if (authState is AuthAuthenticated) {
+                  context.read<PaperBloc>().add(PaperUpdateRequested(
+                        paper.copyWith(
+                          notes: value,
+                          updatedAt: DateTime.now(),
+                        ),
+                        currentUserId: authState.user.uid,
+                        currentUserName: authState.user.displayName,
+                      ));
+                }
+              }
+            },
+          ),
+        ),
+        const SizedBox(height: 24),
         // Abstract
         if (paper.abstract_.isNotEmpty) ...[
           _buildSectionTitle('Abstract'),
@@ -298,13 +617,13 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppTheme.cardColor,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               paper.abstract_,
-              style: const TextStyle(
-                color: AppTheme.textSecondary,
+              style: TextStyle(
+                color: Theme.of(context).textTheme.bodyMedium?.color,
                 fontSize: 14,
                 height: 1.6,
               ),
@@ -325,13 +644,13 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         tag,
-                        style: const TextStyle(
-                          color: AppTheme.primaryLight,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                         ),
@@ -373,7 +692,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
     return Text(
       title,
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: AppTheme.textPrimary,
+            color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.w600,
           ),
     );
@@ -388,8 +707,8 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
             width: 100,
             child: Text(
               label,
-              style: const TextStyle(
-                color: AppTheme.textMuted,
+              style: TextStyle(
+                color: Theme.of(context).textTheme.bodySmall?.color,
                 fontSize: 14,
               ),
             ),
@@ -397,8 +716,8 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 14,
               ),
             ),
@@ -435,7 +754,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
         if (users.isEmpty) {
           return Text(
             'No collaborators',
-            style: TextStyle(color: AppTheme.textMuted, fontSize: 14),
+            style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 14),
           );
         }
 
@@ -445,7 +764,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppTheme.cardColor,
+                      color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
@@ -453,16 +772,16 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
                         CircleAvatar(
                           radius: 18,
                           backgroundColor:
-                              AppTheme.accentColor.withValues(alpha: 0.2),
+                              Theme.of(context).colorScheme.secondary.withValues(alpha: 0.2),
                           child: Text(
                             (user.displayName.isNotEmpty
                                     ? user.displayName[0]
                                     : user.email[0])
                                 .toUpperCase(),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
-                              color: AppTheme.accentColor,
+                              color: Theme.of(context).colorScheme.secondary,
                             ),
                           ),
                         ),
@@ -484,7 +803,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
                                 Text(
                                   user.email,
                                   style: TextStyle(
-                                    color: AppTheme.textMuted,
+                                    color: Theme.of(context).textTheme.bodySmall?.color,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -500,3 +819,4 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
     );
   }
 }
+

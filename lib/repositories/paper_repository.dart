@@ -2,6 +2,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:paper_tracker/models/notification_model.dart';
 import 'package:paper_tracker/models/paper.dart';
 import 'package:paper_tracker/repositories/notification_repository.dart';
+import 'package:paper_tracker/utils/firebase_utils.dart';
 
 class PaperRepository {
   final FirebaseDatabase _db;
@@ -21,14 +22,15 @@ class PaperRepository {
     return _db.ref('papersByUser/$userId').onValue.asyncMap((event) async {
       if (!event.snapshot.exists) return <Paper>[];
 
-      final paperIds = Map<String, dynamic>.from(event.snapshot.value as Map);
+      final paperIds = safeCastMap(event.snapshot.value);
+      final futures = paperIds.keys.map((id) => _papersRef.child(id).get());
+      final snapshots = await Future.wait(futures);
       final papers = <Paper>[];
 
-      for (final paperId in paperIds.keys) {
-        final paperSnapshot = await _papersRef.child(paperId).get();
-        if (paperSnapshot.exists) {
-          final data = Map<String, dynamic>.from(paperSnapshot.value as Map);
-          papers.add(Paper.fromMap(paperId, data));
+      for (final snapshot in snapshots) {
+        if (snapshot.exists) {
+          final data = safeCastMap(snapshot.value);
+          papers.add(Paper.fromMap(snapshot.key!, data));
         }
       }
 
@@ -42,7 +44,7 @@ class PaperRepository {
   Future<Paper?> getPaperById(String paperId) async {
     final snapshot = await _papersRef.child(paperId).get();
     if (snapshot.exists) {
-      final data = Map<String, dynamic>.from(snapshot.value as Map);
+      final data = safeCastMap(snapshot.value);
       return Paper.fromMap(paperId, data);
     }
     return null;
@@ -52,7 +54,7 @@ class PaperRepository {
   Stream<Paper?> streamPaper(String paperId) {
     return _papersRef.child(paperId).onValue.map((event) {
       if (event.snapshot.exists) {
-        final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+        final data = safeCastMap(event.snapshot.value);
         return Paper.fromMap(paperId, data);
       }
       return null;
@@ -80,7 +82,7 @@ class PaperRepository {
     if (paper.authorIds.length > 1 &&
         _notificationRepository != null &&
         currentUserId != null) {
-      await _notificationRepository!.pushNotificationToMany(
+      await _notificationRepository.pushNotificationToMany(
         recipientIds: paper.authorIds,
         senderId: currentUserId,
         senderName: currentUserName ?? '',
@@ -105,7 +107,7 @@ class PaperRepository {
     final oldSnapshot = await _papersRef.child(paper.id).get();
     List<String> oldAuthorIds = [];
     if (oldSnapshot.exists) {
-      final oldData = Map<String, dynamic>.from(oldSnapshot.value as Map);
+      final oldData = safeCastMap(oldSnapshot.value);
       oldAuthorIds = List<String>.from(oldData['authorIds'] ?? []);
     }
 
@@ -131,7 +133,7 @@ class PaperRepository {
     if (added.isNotEmpty &&
         _notificationRepository != null &&
         currentUserId != null) {
-      await _notificationRepository!.pushNotificationToMany(
+      await _notificationRepository.pushNotificationToMany(
         recipientIds: added,
         senderId: currentUserId,
         senderName: currentUserName ?? '',
@@ -148,7 +150,7 @@ class PaperRepository {
     if (existingAuthors.isNotEmpty &&
         _notificationRepository != null &&
         currentUserId != null) {
-      await _notificationRepository!.pushNotificationToMany(
+      await _notificationRepository.pushNotificationToMany(
         recipientIds: existingAuthors,
         senderId: currentUserId,
         senderName: currentUserName ?? '',
@@ -160,49 +162,50 @@ class PaperRepository {
     }
   }
 
-  /// Delete a paper and its related data
+  /// Delete a paper and its related data using a single atomic batch write.
   Future<void> deletePaper(String paperId) async {
-    // First get the paper to know which authors to clean up
     final paperSnapshot = await _papersRef.child(paperId).get();
+    final updates = <String, dynamic>{};
 
-    // Delete tasks for this paper
+    // Gather tasks to delete
     final tasksSnapshot = await _db
         .ref('tasks')
         .orderByChild('paperId')
         .equalTo(paperId)
         .get();
     if (tasksSnapshot.exists) {
-      final tasks = Map<String, dynamic>.from(tasksSnapshot.value as Map);
+      final tasks = safeCastMap(tasksSnapshot.value);
       for (final taskId in tasks.keys) {
-        await _db.ref('tasks/$taskId').remove();
+        updates['tasks/$taskId'] = null;
       }
     }
 
-    // Delete comments for this paper
+    // Gather comments to delete
     final commentsSnapshot = await _db
         .ref('comments')
         .orderByChild('paperId')
         .equalTo(paperId)
         .get();
     if (commentsSnapshot.exists) {
-      final comments =
-          Map<String, dynamic>.from(commentsSnapshot.value as Map);
+      final comments = safeCastMap(commentsSnapshot.value);
       for (final commentId in comments.keys) {
-        await _db.ref('comments/$commentId').remove();
+        updates['comments/$commentId'] = null;
       }
     }
 
-    // Remove from papersByUser index
+    // Gather index entries to remove
     if (paperSnapshot.exists) {
-      final data = Map<String, dynamic>.from(paperSnapshot.value as Map);
-      final authorIds = List<String>.from(data['authorIds'] ?? []);
+      final data = safeCastMap(paperSnapshot.value);
+      final authorIds = safeCastStringList(data['authorIds']);
       for (final authorId in authorIds) {
-        await _db.ref('papersByUser/$authorId/$paperId').remove();
+        updates['papersByUser/$authorId/$paperId'] = null;
       }
     }
 
     // Delete the paper itself
-    await _papersRef.child(paperId).remove();
+    updates['papers/$paperId'] = null;
+
+    await _db.ref().update(updates);
   }
 
   /// Update only the status of a paper and notify all contributors.
@@ -217,8 +220,8 @@ class PaperRepository {
     final paperSnapshot = await _papersRef.child(paperId).get();
     List<String> authorIds = [];
     if (paperSnapshot.exists) {
-      final data = Map<String, dynamic>.from(paperSnapshot.value as Map);
-      authorIds = List<String>.from(data['authorIds'] ?? []);
+      final data = safeCastMap(paperSnapshot.value);
+      authorIds = safeCastStringList(data['authorIds']);
     }
 
     await _papersRef.child(paperId).update({
@@ -230,7 +233,7 @@ class PaperRepository {
     if (authorIds.isNotEmpty &&
         _notificationRepository != null &&
         currentUserId != null) {
-      await _notificationRepository!.pushNotificationToMany(
+      await _notificationRepository.pushNotificationToMany(
         recipientIds: authorIds,
         senderId: currentUserId,
         senderName: currentUserName ?? '',

@@ -1,5 +1,7 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'notification_stub.dart'
     if (dart.library.html) 'notification_web.dart' as web_notif;
 
@@ -82,6 +84,62 @@ class NotificationService {
 
   void _onNotificationTapped(NotificationResponse response) {
     // Deep-link handling can be added here later if needed
+  }
+
+  bool _fcmSetupDone = false;
+
+  /// Request FCM permission, save the device token to RTDB, and listen for
+  /// incoming push notifications while the app is in the foreground.
+  Future<void> setupFcm({required String userId}) async {
+    if (kIsWeb) return;
+
+    try {
+      final messaging = FirebaseMessaging.instance;
+
+      final settings = await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      if (settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional) {
+        final token = await messaging.getToken();
+        if (token != null) {
+          await FirebaseDatabase.instance
+              .ref('fcmTokens/$userId')
+              .set(token);
+        }
+
+        if (!_fcmSetupDone) {
+          _fcmSetupDone = true;
+
+          FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+            final notification = message.notification;
+            if (notification != null) {
+              showNotification(
+                id: DateTime.now()
+                    .millisecondsSinceEpoch
+                    .remainder(100000),
+                title: notification.title ?? '',
+                body: notification.body ?? '',
+                payload: message.data['route'],
+              );
+            }
+          });
+
+          FirebaseMessaging.onMessageOpenedApp
+              .listen((RemoteMessage message) {
+            final route = message.data['route'];
+            if (route != null) {
+              // Navigate using go_router when a BuildContext is available
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('FCM setup failed: $e');
+    }
   }
 
   /// Show a local notification in the system tray/shade.

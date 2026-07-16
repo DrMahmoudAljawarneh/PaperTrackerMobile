@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:paper_tracker/blocs/auth/auth_bloc.dart';
@@ -6,12 +7,12 @@ import 'package:paper_tracker/blocs/auth/auth_state.dart';
 import 'package:paper_tracker/blocs/paper/paper_bloc.dart';
 import 'package:paper_tracker/blocs/paper/paper_event.dart';
 import 'package:paper_tracker/blocs/paper/paper_state.dart';
-import 'package:paper_tracker/config/theme.dart';
 import 'package:paper_tracker/models/paper.dart';
 import 'package:paper_tracker/models/user_model.dart';
 import 'package:paper_tracker/repositories/auth_repository.dart';
 import 'package:paper_tracker/widgets/empty_state.dart';
 import 'package:paper_tracker/widgets/paper_card.dart';
+import 'package:paper_tracker/widgets/shimmer_loading.dart';
 
 enum _SortOption {
   updated('Recently Updated', Icons.update),
@@ -36,7 +37,8 @@ enum _SharingFilter {
 }
 
 class PapersListScreen extends StatefulWidget {
-  const PapersListScreen({super.key});
+  final Set<PaperStatus>? initialStatusFilter;
+  const PapersListScreen({super.key, this.initialStatusFilter});
 
   @override
   State<PapersListScreen> createState() => _PapersListScreenState();
@@ -44,6 +46,7 @@ class PapersListScreen extends StatefulWidget {
 
 class _PapersListScreenState extends State<PapersListScreen> {
   PaperStatus? _selectedStatus;
+  Set<PaperStatus>? _selectedStatusSet;
   PaperPriority? _selectedPriority;
   _SortOption _sortOption = _SortOption.updated;
   String _searchQuery = '';
@@ -57,6 +60,7 @@ class _PapersListScreenState extends State<PapersListScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedStatusSet = widget.initialStatusFilter;
     _loadPapers();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final paperState = context.read<PaperBloc>().state;
@@ -85,7 +89,10 @@ class _PapersListScreenState extends State<PapersListScreen> {
     var filtered = papers.toList();
 
     // Status filter
-    if (_selectedStatus != null) {
+    if (_selectedStatusSet != null) {
+      filtered =
+          filtered.where((p) => _selectedStatusSet!.contains(p.status)).toList();
+    } else if (_selectedStatus != null) {
       filtered = filtered.where((p) => p.status == _selectedStatus).toList();
     }
 
@@ -171,7 +178,10 @@ class _PapersListScreenState extends State<PapersListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/papers/add'),
+        onPressed: () {
+          HapticFeedback.mediumImpact();
+          context.push('/papers/add');
+        },
         child: const Icon(Icons.add_rounded),
       ),
       body: Column(
@@ -214,7 +224,7 @@ class _PapersListScreenState extends State<PapersListScreen> {
                       child: Container(
                         width: 1,
                         height: 20,
-                        color: AppTheme.dividerColor.withOpacity(0.5),
+                        color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
                       ),
                     ),
                   ),
@@ -274,19 +284,19 @@ class _PapersListScreenState extends State<PapersListScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: AppTheme.cardColor,
+                      color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                          color: AppTheme.dividerColor.withOpacity(0.5)),
+                          color: Theme.of(context).dividerColor.withValues(alpha: 0.5)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(_sortOption.icon,
-                            size: 14, color: AppTheme.primaryColor),
+                            size: 14, color: Theme.of(context).colorScheme.primary),
                         const SizedBox(width: 4),
-                        const Icon(Icons.arrow_drop_down,
-                            size: 16, color: AppTheme.textMuted),
+                        Icon(Icons.arrow_drop_down,
+                            size: 16, color: Theme.of(context).textTheme.bodySmall?.color),
                       ],
                     ),
                   ),
@@ -298,15 +308,15 @@ class _PapersListScreenState extends State<PapersListScreen> {
                                 Icon(opt.icon,
                                     size: 16,
                                     color: opt == _sortOption
-                                        ? AppTheme.primaryColor
-                                        : AppTheme.textMuted),
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Theme.of(context).textTheme.bodySmall?.color),
                                 const SizedBox(width: 8),
                                 Text(opt.label,
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: opt == _sortOption
-                                          ? AppTheme.primaryColor
-                                          : AppTheme.textPrimary,
+                                          ? Theme.of(context).colorScheme.primary
+                                          : Theme.of(context).colorScheme.onSurface,
                                     )),
                               ],
                             ),
@@ -328,7 +338,7 @@ class _PapersListScreenState extends State<PapersListScreen> {
               },
               builder: (context, state) {
                 if (state is PaperLoading) {
-                  return const Center(child: CircularProgressIndicator());
+                  return _buildPapersShimmer();
                 }
                 if (state is PapersLoaded) {
                   final filtered = _filterAndSort(state.papers);
@@ -345,7 +355,7 @@ class _PapersListScreenState extends State<PapersListScreen> {
                                 '${filtered.length} paper${filtered.length == 1 ? '' : 's'}',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: AppTheme.textMuted,
+                                  color: Theme.of(context).textTheme.bodySmall?.color,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -358,6 +368,7 @@ class _PapersListScreenState extends State<PapersListScreen> {
                                 GestureDetector(
                                   onTap: () {
                                     setState(() {
+                                      _selectedStatusSet = null;
                                       _selectedStatus = null;
                                       _selectedPriority = null;
                                       _selectedSharing = _SharingFilter.all;
@@ -370,7 +381,7 @@ class _PapersListScreenState extends State<PapersListScreen> {
                                     'Clear filters',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: AppTheme.primaryColor,
+                                      color: Theme.of(context).colorScheme.primary,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -406,10 +417,13 @@ class _PapersListScreenState extends State<PapersListScreen> {
                                   itemCount: filtered.length,
                                   itemBuilder: (context, index) {
                                     final paper = filtered[index];
-                                    return PaperCard(
-                                      paper: paper,
-                                      onTap: () => context
-                                          .push('/papers/${paper.id}'),
+                                    return _AnimatedPaperCard(
+                                      index: index,
+                                      child: PaperCard(
+                                        paper: paper,
+                                        onTap: () => context
+                                            .push('/papers/${paper.id}'),
+                                      ),
                                     );
                                   },
                                 ),
@@ -418,12 +432,57 @@ class _PapersListScreenState extends State<PapersListScreen> {
                     ],
                   );
                 }
-                return const Center(child: CircularProgressIndicator());
+                return _buildPapersShimmer();
               },
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildPapersShimmer() {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      itemCount: 4,
+      physics: const NeverScrollableScrollPhysics(),
+      itemBuilder: (context, index) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top tags / status line
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  ShimmerLoading(width: 80, height: 16, borderRadius: 4),
+                  ShimmerLoading(width: 60, height: 16, borderRadius: 4),
+                ],
+              ),
+              SizedBox(height: 12),
+              // Title
+              ShimmerLoading(width: double.infinity, height: 20, borderRadius: 4),
+              SizedBox(height: 8),
+              ShimmerLoading(width: 180, height: 18, borderRadius: 4),
+              SizedBox(height: 16),
+              // Footer
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  ShimmerLoading(width: 100, height: 14, borderRadius: 4),
+                  ShimmerLoading(width: 40, height: 14, borderRadius: 4),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -486,18 +545,19 @@ class _PapersListScreenState extends State<PapersListScreen> {
         label: Text(filter.label, style: const TextStyle(fontSize: 12)),
         selected: isSelected,
         onSelected: (selected) {
+          HapticFeedback.lightImpact();
           setState(() {
             if (selected) {
               _selectedSharing = filter;
             }
           });
         },
-        backgroundColor: AppTheme.cardColor,
-        selectedColor: AppTheme.primaryColor.withOpacity(0.25),
-        checkmarkColor: AppTheme.primaryColor,
+        backgroundColor: Theme.of(context).cardColor,
+        selectedColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
+        checkmarkColor: Theme.of(context).colorScheme.primary,
         side: BorderSide(
           color: isSelected
-              ? AppTheme.primaryColor.withOpacity(0.5)
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)
               : Colors.transparent,
         ),
         visualDensity: VisualDensity.compact,
@@ -531,6 +591,7 @@ class _PapersListScreenState extends State<PapersListScreen> {
       child: PopupMenuButton<String?>(
         initialValue: _selectedCollaboratorId,
         onSelected: (colleagueId) {
+          HapticFeedback.lightImpact();
           setState(() {
             _selectedCollaboratorId = colleagueId;
           });
@@ -539,13 +600,13 @@ class _PapersListScreenState extends State<PapersListScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppTheme.primaryColor.withOpacity(0.25)
-                : AppTheme.cardColor,
+                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.25)
+                : Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSelected
-                  ? AppTheme.primaryColor.withOpacity(0.5)
-                  : AppTheme.dividerColor.withOpacity(0.3),
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)
+                  : Theme.of(context).dividerColor.withValues(alpha: 0.3),
             ),
           ),
           child: Row(
@@ -555,7 +616,9 @@ class _PapersListScreenState extends State<PapersListScreen> {
                 'Colleague: $labelText',
                 style: TextStyle(
                   fontSize: 12,
-                  color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                  color: isSelected
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).textTheme.bodyMedium?.color,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 ),
               ),
@@ -563,20 +626,22 @@ class _PapersListScreenState extends State<PapersListScreen> {
               Icon(
                 Icons.arrow_drop_down,
                 size: 16,
-                color: isSelected ? AppTheme.primaryColor : AppTheme.textMuted,
+                color: isSelected
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).textTheme.bodySmall?.color,
               ),
             ],
           ),
         ),
         itemBuilder: (context) {
           return [
-            const PopupMenuItem<String?>(
+            PopupMenuItem<String?>(
               value: null,
               child: Row(
                 children: [
-                  Icon(Icons.people_outline, size: 16, color: AppTheme.textMuted),
-                  SizedBox(width: 8),
-                  Text('Any Colleague', style: TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+                  Icon(Icons.people_outline, size: 16, color: Theme.of(context).textTheme.bodySmall?.color),
+                  const SizedBox(width: 8),
+                  Text('Any Colleague', style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface)),
                 ],
               ),
             ),
@@ -590,14 +655,14 @@ class _PapersListScreenState extends State<PapersListScreen> {
                     Icon(
                       Icons.person,
                       size: 16,
-                      color: isThisSelected ? AppTheme.primaryColor : AppTheme.textMuted,
+                      color: isThisSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).textTheme.bodySmall?.color,
                     ),
                     const SizedBox(width: 8),
                     Text(
                       name,
                       style: TextStyle(
                         fontSize: 13,
-                        color: isThisSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
+                        color: isThisSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
                         fontWeight: isThisSelected ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
@@ -619,14 +684,18 @@ class _PapersListScreenState extends State<PapersListScreen> {
         label: Text(label, style: const TextStyle(fontSize: 12)),
         selected: isSelected,
         onSelected: (selected) {
-          setState(() => _selectedStatus = selected ? status : null);
+          HapticFeedback.lightImpact();
+          setState(() {
+            _selectedStatusSet = null;
+            _selectedStatus = selected ? status : null;
+          });
         },
-        backgroundColor: AppTheme.cardColor,
-        selectedColor: AppTheme.primaryColor.withOpacity(0.25),
-        checkmarkColor: AppTheme.primaryColor,
+        backgroundColor: Theme.of(context).cardColor,
+        selectedColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
+        checkmarkColor: Theme.of(context).colorScheme.primary,
         side: BorderSide(
           color: isSelected
-              ? AppTheme.primaryColor.withOpacity(0.5)
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)
               : Colors.transparent,
         ),
         visualDensity: VisualDensity.compact,
@@ -639,19 +708,21 @@ class _PapersListScreenState extends State<PapersListScreen> {
     return Padding(
       padding: const EdgeInsets.only(right: 6),
       child: GestureDetector(
-        onTap: () =>
-            setState(() => _selectedPriority = isSelected ? null : priority),
+        onTap: () {
+          HapticFeedback.lightImpact();
+          setState(() => _selectedPriority = isSelected ? null : priority);
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppTheme.accentColor.withOpacity(0.2)
-                : AppTheme.cardColor,
+                ? Theme.of(context).colorScheme.secondary.withValues(alpha: 0.2)
+                : Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isSelected
-                  ? AppTheme.accentColor.withOpacity(0.5)
+                  ? Theme.of(context).colorScheme.secondary.withValues(alpha: 0.5)
                   : Colors.transparent,
             ),
           ),
@@ -660,7 +731,7 @@ class _PapersListScreenState extends State<PapersListScreen> {
             style: TextStyle(
               fontSize: 11,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              color: isSelected ? AppTheme.accentColor : AppTheme.textSecondary,
+              color: isSelected ? Theme.of(context).colorScheme.secondary : Theme.of(context).textTheme.bodyMedium?.color,
             ),
           ),
         ),
@@ -668,3 +739,35 @@ class _PapersListScreenState extends State<PapersListScreen> {
     );
   }
 }
+
+class _AnimatedPaperCard extends StatelessWidget {
+  final Widget child;
+  final int index;
+
+  const _AnimatedPaperCard({
+    required this.child,
+    required this.index,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Use TweenAnimationBuilder instead of AnimationController per item.
+    // Stagger is achieved by increasing duration with index.
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 375 + index * 50),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 15 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+}
+

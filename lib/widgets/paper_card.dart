@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:paper_tracker/config/theme.dart';
 import 'package:paper_tracker/models/paper.dart';
@@ -16,15 +17,32 @@ class PaperCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final daysUntilDeadline = paper.deadline != null
-        ? paper.deadline!.difference(DateTime.now()).inDays
-        : null;
+    final daysUntilDeadline = paper.deadline?.difference(DateTime.now()).inDays;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
+    return Hero(
+      tag: 'paper-card-${paper.id}',
+      flightShuttleBuilder: (
+        flightContext,
+        animation,
+        flightDirection,
+        fromHeroContext,
+        toHeroContext,
+      ) {
+        return Material(
+          color: Colors.transparent,
+          child: toHeroContext.widget,
+        );
+      },
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          if (onTap != null) {
+            onTap!();
+          }
+        },
+        child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        decoration: AppTheme.glassmorphismDecoration,
+        decoration: AppTheme.glassmorphismDecoration(context),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -58,14 +76,14 @@ class PaperCard extends StatelessWidget {
                     Icon(
                       Icons.school_outlined,
                       size: 14,
-                      color: AppTheme.textMuted,
+                      color: Theme.of(context).textTheme.bodySmall?.color,
                     ),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         paper.targetVenue,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppTheme.textMuted,
+                              color: Theme.of(context).textTheme.bodySmall?.color,
                             ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -85,8 +103,8 @@ class PaperCard extends StatelessWidget {
                       Icons.schedule,
                       size: 14,
                       color: daysUntilDeadline != null && daysUntilDeadline <= 3
-                          ? AppTheme.errorColor
-                          : AppTheme.textMuted,
+                          ? Theme.of(context).colorScheme.error
+                          : Theme.of(context).textTheme.bodySmall?.color,
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -95,8 +113,8 @@ class PaperCard extends StatelessWidget {
                         fontSize: 12,
                         color:
                             daysUntilDeadline != null && daysUntilDeadline <= 3
-                                ? AppTheme.errorColor
-                                : AppTheme.textMuted,
+                                ? Theme.of(context).colorScheme.error
+                                : Theme.of(context).textTheme.bodySmall?.color,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -107,8 +125,8 @@ class PaperCard extends StatelessWidget {
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: daysUntilDeadline <= 3
-                              ? AppTheme.errorColor.withOpacity(0.15)
-                              : AppTheme.primaryColor.withOpacity(0.15),
+                              ? Theme.of(context).colorScheme.error.withValues(alpha: 0.15)
+                              : Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -119,8 +137,8 @@ class PaperCard extends StatelessWidget {
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                             color: daysUntilDeadline <= 3
-                                ? AppTheme.errorColor
-                                : AppTheme.primaryColor,
+                                ? Theme.of(context).colorScheme.error
+                                : Theme.of(context).colorScheme.primary,
                           ),
                         ),
                       ),
@@ -130,14 +148,14 @@ class PaperCard extends StatelessWidget {
                   Icon(
                     Icons.people_outline,
                     size: 14,
-                    color: AppTheme.textMuted,
+                    color: Theme.of(context).textTheme.bodySmall?.color,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     '${paper.authorIds.length}',
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppTheme.textMuted,
+                      color: Theme.of(context).textTheme.bodySmall?.color,
                     ),
                   ),
                 ],
@@ -155,14 +173,14 @@ class PaperCard extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withOpacity(0.1),
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               tag,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 10,
-                                color: AppTheme.primaryLight,
+                                color: Theme.of(context).colorScheme.primary,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -174,8 +192,9 @@ class PaperCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildPriorityIndicator() {
     final color = AppTheme.priorityColor(paper.priority);
@@ -203,3 +222,4 @@ class PaperCard extends StatelessWidget {
     );
   }
 }
+

@@ -6,8 +6,15 @@ import 'package:paper_tracker/blocs/auth/auth_state.dart';
 import 'package:paper_tracker/blocs/notification/notification_bloc.dart';
 import 'package:paper_tracker/blocs/notification/notification_event.dart';
 import 'package:paper_tracker/blocs/notification/notification_state.dart';
-import 'package:paper_tracker/config/theme.dart';
 import 'package:paper_tracker/services/notification_service.dart';
+import 'package:paper_tracker/widgets/connectivity_banner.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:path_provider/path_provider.dart';
+import 'dart:io' show File;
+import 'package:url_launcher/url_launcher.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:paper_tracker/blocs/paper/paper_bloc.dart';
+import 'package:paper_tracker/blocs/paper/paper_state.dart';
 
 class ShellScreen extends StatefulWidget {
   final Widget child;
@@ -42,6 +49,13 @@ class _ShellScreenState extends State<ShellScreen> {
       appBar: AppBar(
         title: Text(_getTitle(context)),
         actions: [
+          // Export CSV icon (Only visible on Papers tab)
+          if (GoRouterState.of(context).matchedLocation.startsWith('/papers'))
+            IconButton(
+              icon: const Icon(Icons.download_rounded),
+              tooltip: 'Export papers as CSV',
+              onPressed: () => _exportPapers(context),
+            ),
           // Profile icon
           IconButton(
             icon: const Icon(Icons.account_circle_outlined),
@@ -59,7 +73,7 @@ class _ShellScreenState extends State<ShellScreen> {
                     unreadCount > 99 ? '99+' : '$unreadCount',
                     style: const TextStyle(fontSize: 10),
                   ),
-                  backgroundColor: AppTheme.errorColor,
+                  backgroundColor: Theme.of(context).colorScheme.error,
                   child: const Icon(Icons.notifications_outlined),
                 ),
                 onPressed: () {
@@ -71,13 +85,18 @@ class _ShellScreenState extends State<ShellScreen> {
           ),
         ],
       ),
-      body: widget.child,
+      body: Column(
+        children: [
+          const ConnectivityBanner(),
+          Expanded(child: widget.child),
+        ],
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: AppTheme.surfaceColor,
+          color: Theme.of(context).bottomNavigationBarTheme.backgroundColor,
           border: Border(
             top: BorderSide(
-              color: AppTheme.dividerColor.withOpacity(0.5),
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
               width: 0.5,
             ),
           ),
@@ -136,5 +155,79 @@ class _ShellScreenState extends State<ShellScreen> {
         break;
     }
   }
+
+  void _exportPapers(BuildContext context) async {
+    final paperState = context.read<PaperBloc>().state;
+    if (paperState is! PapersLoaded || paperState.papers.isEmpty) {
+      Fluttertoast.showToast(
+        msg: 'No papers available to export',
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+      );
+      return;
+    }
+
+    final papers = paperState.papers;
+    final csvData = StringBuffer();
+    // Headers
+    csvData.writeln('ID,Title,Abstract,Status,Priority,Lead Author ID,Authors,Target Venue,Deadline,Tags,Currently With,Created At,Updated At');
+
+    for (final paper in papers) {
+      final title = paper.title.replaceAll('"', '""');
+      final abstractText = paper.abstract_.replaceAll('"', '""');
+      final status = paper.status.label;
+      final priority = paper.priority.label;
+      final leadAuthorId = paper.leadAuthorId;
+      final authors = paper.authors.join('; ').replaceAll('"', '""');
+      final venue = paper.targetVenue.replaceAll('"', '""');
+      final deadline = paper.deadline != null ? paper.deadline!.toIso8601String() : 'N/A';
+      final tags = paper.tags.join('; ').replaceAll('"', '""');
+      final currentlyWith = paper.currentlyWith.replaceAll('"', '""');
+      final createdAt = paper.createdAt.toIso8601String();
+      final updatedAt = paper.updatedAt.toIso8601String();
+
+      csvData.writeln('"${paper.id}","$title","$abstractText","$status","$priority","$leadAuthorId","$authors","$venue","$deadline","$tags","$currentlyWith","$createdAt","$updatedAt"');
+    }
+
+    final csvString = csvData.toString();
+
+    if (kIsWeb) {
+      try {
+        final bytes = Uri.encodeComponent(csvString);
+        final url = 'data:text/csv;charset=utf-8,$bytes';
+        await launchUrl(Uri.parse(url));
+        Fluttertoast.showToast(
+          msg: 'CSV export downloaded',
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+        );
+      } catch (e) {
+        Fluttertoast.showToast(
+          msg: 'Web export failed: $e',
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+        );
+      }
+    } else {
+      try {
+        final directory = await getApplicationDocumentsDirectory();
+        final path = '${directory.path}/papers_export.csv';
+        final file = File(path);
+        await file.writeAsString(csvString);
+        Fluttertoast.showToast(
+          msg: 'Exported successfully to Documents',
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+        );
+      } catch (e) {
+        Fluttertoast.showToast(
+          msg: 'Failed to write CSV: $e',
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+        );
+      }
+    }
+  }
 }
+
 

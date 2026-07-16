@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:paper_tracker/blocs/chat_detail/chat_detail_event.dart';
 import 'package:paper_tracker/blocs/chat_detail/chat_detail_state.dart';
@@ -7,7 +7,6 @@ import 'package:paper_tracker/repositories/chat_repository.dart';
 
 class ChatDetailBloc extends Bloc<ChatDetailEvent, ChatDetailState> {
   final ChatRepository _chatRepository;
-  StreamSubscription<List<ChatMessage>>? _messagesSubscription;
 
   ChatDetailBloc({required ChatRepository chatRepository})
       : _chatRepository = chatRepository,
@@ -16,13 +15,12 @@ class ChatDetailBloc extends Bloc<ChatDetailEvent, ChatDetailState> {
     on<SendMessage>(_onSendMessage);
   }
 
-  void _onLoadChatMessages(
+  Future<void> _onLoadChatMessages(
     LoadChatMessages event,
     Emitter<ChatDetailState> emit,
   ) async {
     emit(ChatDetailLoading());
-    await _messagesSubscription?.cancel();
-    
+    _chatRepository.markMessagesAsRead(event.chatId, event.currentUserId);
     await emit.forEach<List<ChatMessage>>(
       _chatRepository.getMessagesStream(event.chatId),
       onData: (messages) => ChatDetailLoaded(messages),
@@ -37,27 +35,15 @@ class ChatDetailBloc extends Bloc<ChatDetailEvent, ChatDetailState> {
   ) async {
     try {
       final message = ChatMessage(
-        id: '', // Will be set by repository
+        id: '',
         senderId: event.senderId,
         text: event.text,
         timestamp: DateTime.now(),
         isRead: false,
       );
-      
       await _chatRepository.sendMessage(event.chatId, message);
     } catch (e) {
-      // It's tricky to emit an error state here because the stream is active,
-      // but we could emit an error and then quickly revert back, or simply
-      // handle message send failures visually inside the UI differently.
-      // For now, we'll assume it succeeds or fails silently from the State's perspective,
-      // as the stream listener is the ultimate source of truth.
-      emit(ChatDetailError('Failed to send message: ${e.toString()}'));
+      debugPrint('Failed to send message: $e');
     }
-  }
-
-  @override
-  Future<void> close() {
-    _messagesSubscription?.cancel();
-    return super.close();
   }
 }

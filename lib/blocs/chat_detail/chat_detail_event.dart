@@ -9,11 +9,12 @@ abstract class ChatDetailEvent extends Equatable {
 
 class LoadChatMessages extends ChatDetailEvent {
   final String chatId;
+  final String currentUserId;
 
-  const LoadChatMessages(this.chatId);
+  const LoadChatMessages(this.chatId, this.currentUserId);
 
   @override
-  List<Object?> get props => [chatId];
+  List<Object?> get props => [chatId, currentUserId];
 }
 
 class SendMessage extends ChatDetailEvent {

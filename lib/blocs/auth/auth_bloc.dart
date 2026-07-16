@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:paper_tracker/blocs/auth/auth_event.dart';
 import 'package:paper_tracker/blocs/auth/auth_state.dart';
 import 'package:paper_tracker/repositories/auth_repository.dart';
+import 'package:paper_tracker/services/notification_service.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthRepository _authRepository;
@@ -13,6 +14,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthLoginRequested>(_onLoginRequested);
     on<AuthRegisterRequested>(_onRegisterRequested);
     on<AuthLogoutRequested>(_onLogoutRequested);
+    on<AuthForgotPasswordRequested>(_onForgotPasswordRequested);
   }
 
   Future<void> _onCheckRequested(
@@ -22,6 +24,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final user = _authRepository.currentUser;
     if (user != null) {
       emit(AuthAuthenticated(user));
+      NotificationService().setupFcm(userId: user.uid);
     } else {
       emit(AuthUnauthenticated());
     }
@@ -37,6 +40,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           await _authRepository.signInWithEmail(event.email, event.password);
       if (user != null) {
         emit(AuthAuthenticated(user));
+        NotificationService().setupFcm(userId: user.uid);
       } else {
         emit(const AuthError('Login failed'));
       }
@@ -58,6 +62,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
       if (user != null) {
         emit(AuthAuthenticated(user));
+        NotificationService().setupFcm(userId: user.uid);
       } else {
         emit(const AuthError('Registration failed'));
       }
@@ -72,6 +77,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     await _authRepository.signOut();
     emit(AuthUnauthenticated());
+  }
+
+  Future<void> _onForgotPasswordRequested(
+    AuthForgotPasswordRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthLoading());
+    try {
+      await _authRepository.sendPasswordReset(event.email);
+      emit(AuthPasswordResetSent(email: event.email));
+    } catch (e) {
+      emit(AuthError(_mapFirebaseError(e)));
+    }
   }
 
   String _mapFirebaseError(dynamic e) {

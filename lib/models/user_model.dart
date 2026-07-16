@@ -5,6 +5,7 @@ class UserModel extends Equatable {
   final String email;
   final String displayName;
   final String photoUrl;
+  final String orcidId;
   final DateTime createdAt;
 
   const UserModel({
@@ -12,6 +13,7 @@ class UserModel extends Equatable {
     required this.email,
     this.displayName = '',
     this.photoUrl = '',
+    this.orcidId = '',
     required this.createdAt,
   });
 
@@ -20,6 +22,7 @@ class UserModel extends Equatable {
     String? email,
     String? displayName,
     String? photoUrl,
+    String? orcidId,
     DateTime? createdAt,
   }) {
     return UserModel(
@@ -27,6 +30,7 @@ class UserModel extends Equatable {
       email: email ?? this.email,
       displayName: displayName ?? this.displayName,
       photoUrl: photoUrl ?? this.photoUrl,
+      orcidId: orcidId ?? this.orcidId,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -37,6 +41,7 @@ class UserModel extends Equatable {
       'email': email,
       'displayName': displayName,
       'photoUrl': photoUrl,
+      'orcidId': orcidId,
       'createdAt': createdAt.toIso8601String(),
     };
   }
@@ -47,6 +52,7 @@ class UserModel extends Equatable {
       email: map['email'] ?? '',
       displayName: map['displayName'] ?? '',
       photoUrl: map['photoUrl'] ?? '',
+      orcidId: map['orcidId'] ?? '',
       createdAt: map['createdAt'] != null
           ? DateTime.parse(map['createdAt'])
           : DateTime.now(),
@@ -54,5 +60,6 @@ class UserModel extends Equatable {
   }
 
   @override
-  List<Object?> get props => [uid, email, displayName, photoUrl, createdAt];
+  List<Object?> get props =>
+      [uid, email, displayName, photoUrl, orcidId, createdAt];
 }

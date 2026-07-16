@@ -2,6 +2,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:paper_tracker/models/comment.dart';
 import 'package:paper_tracker/models/notification_model.dart';
 import 'package:paper_tracker/repositories/notification_repository.dart';
+import 'package:paper_tracker/utils/firebase_utils.dart';
 
 class CommentRepository {
   final FirebaseDatabase _db;
@@ -23,10 +24,10 @@ class CommentRepository {
         .onValue
         .map((event) {
       if (!event.snapshot.exists) return <Comment>[];
-      final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+      final data = safeCastMap(event.snapshot.value);
       final comments = data.entries
           .map((e) =>
-              Comment.fromMap(e.key, Map<String, dynamic>.from(e.value)))
+              Comment.fromMap(e.key, safeCastMap(e.value)))
           .toList();
       // Sort by createdAt ascending (client-side)
       comments.sort((a, b) => a.createdAt.compareTo(b.createdAt));
@@ -46,7 +47,7 @@ class CommentRepository {
 
     // Notify all collaborators except the comment author
     if (_notificationRepository != null && paperAuthorIds.isNotEmpty) {
-      await _notificationRepository!.pushNotificationToMany(
+      await _notificationRepository.pushNotificationToMany(
         recipientIds: paperAuthorIds,
         senderId: comment.authorId,
         senderName: comment.authorName,
@@ -60,6 +61,11 @@ class CommentRepository {
     }
 
     return newRef.key!;
+  }
+
+  /// Update a comment's text
+  Future<void> updateComment(String commentId, String newText) async {
+    await _commentsRef.child(commentId).child('text').set(newText);
   }
 
   /// Delete a comment

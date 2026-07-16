@@ -39,13 +39,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: AppTheme.errorColor,
+                backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
           }
         },
         child: Container(
-          decoration: AppTheme.gradientDecoration,
+          decoration: AppTheme.gradientDecoration(context),
           child: SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -66,7 +66,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     // Form Card
                     Container(
                       padding: const EdgeInsets.all(28),
-                      decoration: AppTheme.glassmorphismDecoration,
+                      decoration: AppTheme.glassmorphismDecoration(context),
                       child: Form(
                         key: _formKey,
                         child: Column(
@@ -84,7 +84,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               style: Theme.of(context)
                                   .textTheme
                                   .bodyMedium
-                                  ?.copyWith(color: AppTheme.textMuted),
+                                  ?.copyWith(color: Theme.of(context).textTheme.bodySmall?.color),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 28),
@@ -218,14 +218,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       children: [
                         Text(
                           'Already have an account? ',
-                          style: TextStyle(color: AppTheme.textMuted),
+                          style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
                         ),
                         GestureDetector(
                           onTap: () => context.go('/login'),
-                          child: const Text(
+                          child: Text(
                             'Sign In',
                             style: TextStyle(
-                              color: AppTheme.primaryColor,
+                              color: Theme.of(context).colorScheme.primary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),

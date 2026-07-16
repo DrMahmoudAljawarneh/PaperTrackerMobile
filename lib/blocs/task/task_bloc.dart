@@ -16,7 +16,9 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
     on<TasksUpdated>(_onTasksUpdated);
     on<TaskCreateRequested>(_onCreateRequested);
     on<TaskToggleRequested>(_onToggleRequested);
+    on<TaskEditRequested>(_onEditRequested);
     on<TaskDeleteRequested>(_onDeleteRequested);
+    on<_TasksLoadError>(_onTasksLoadError);
   }
 
   Future<void> _onLoadRequested(
@@ -28,7 +30,7 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
     _tasksSubscription =
         _taskRepository.getTasksForPaper(event.paperId).listen(
       (tasks) => add(TasksUpdated(tasks)),
-      onError: (error) => add(const TasksUpdated([])),
+      onError: (error) => add(_TasksLoadError(error.toString())),
     );
   }
 
@@ -75,6 +77,24 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
     }
   }
 
+  Future<void> _onEditRequested(
+    TaskEditRequested event,
+    Emitter<TaskState> emit,
+  ) async {
+    try {
+      await _taskRepository.updateTaskFields(
+        event.taskId,
+        title: event.title,
+        assigneeId: event.assigneeId,
+        dueDate: event.dueDate,
+        priority: event.priority,
+        progress: event.progress,
+      );
+    } catch (e) {
+      emit(TaskError('Failed to update task: $e'));
+    }
+  }
+
   Future<void> _onDeleteRequested(
     TaskDeleteRequested event,
     Emitter<TaskState> emit,
@@ -86,9 +106,24 @@ class TaskBloc extends Bloc<TaskEvent, TaskState> {
     }
   }
 
+  void _onTasksLoadError(
+    _TasksLoadError event,
+    Emitter<TaskState> emit,
+  ) {
+    emit(TaskError(event.message));
+  }
+
   @override
   Future<void> close() {
     _tasksSubscription?.cancel();
     return super.close();
   }
+}
+
+class _TasksLoadError extends TaskEvent {
+  final String message;
+  const _TasksLoadError(this.message);
+
+  @override
+  List<Object?> get props => [message];
 }

@@ -61,13 +61,13 @@ class _LoginScreenState extends State<LoginScreen>
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: AppTheme.errorColor,
+                backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
           }
         },
         child: Container(
-          decoration: AppTheme.gradientDecoration,
+          decoration: AppTheme.gradientDecoration(context),
           child: SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -86,7 +86,7 @@ class _LoginScreenState extends State<LoginScreen>
                         // Form Card
                         Container(
                           padding: const EdgeInsets.all(28),
-                          decoration: AppTheme.glassmorphismDecoration,
+                          decoration: AppTheme.glassmorphismDecoration(context),
                           child: Form(
                             key: _formKey,
                             child: Column(
@@ -105,14 +105,28 @@ class _LoginScreenState extends State<LoginScreen>
                                   style: Theme.of(context)
                                       .textTheme
                                       .bodyMedium
-                                      ?.copyWith(color: AppTheme.textMuted),
+                                      ?.copyWith(color: Theme.of(context).textTheme.bodySmall?.color),
                                   textAlign: TextAlign.center,
                                 ),
                                 const SizedBox(height: 28),
                                 _buildEmailField(),
                                 const SizedBox(height: 16),
                                 _buildPasswordField(),
-                                const SizedBox(height: 24),
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton(
+                                    onPressed: () => context.go('/forgot-password'),
+                                    child: Text(
+                                      'Forgot Password?',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Theme.of(context).colorScheme.primary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
                                 _buildLoginButton(),
                               ],
                             ),
@@ -139,15 +153,15 @@ class _LoginScreenState extends State<LoginScreen>
           width: 72,
           height: 72,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppTheme.primaryColor, AppTheme.accentColor],
+            gradient: LinearGradient(
+              colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.secondary],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.primaryColor.withOpacity(0.3),
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),
@@ -165,8 +179,8 @@ class _LoginScreenState extends State<LoginScreen>
           style: Theme.of(context).textTheme.displayMedium?.copyWith(
                 fontWeight: FontWeight.w700,
                 foreground: Paint()
-                  ..shader = const LinearGradient(
-                    colors: [AppTheme.primaryLight, AppTheme.accentColor],
+                  ..shader = LinearGradient(
+                    colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.secondary],
                   ).createShader(const Rect.fromLTWH(0, 0, 250, 50)),
               ),
         ),
@@ -248,14 +262,14 @@ class _LoginScreenState extends State<LoginScreen>
       children: [
         Text(
           "Don't have an account? ",
-          style: TextStyle(color: AppTheme.textMuted),
+          style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
         ),
         GestureDetector(
           onTap: () => context.go('/register'),
-          child: const Text(
+          child: Text(
             'Sign Up',
             style: TextStyle(
-              color: AppTheme.primaryColor,
+              color: Theme.of(context).colorScheme.primary,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -264,3 +278,4 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 }
+

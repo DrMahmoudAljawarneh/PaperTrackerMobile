@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'submission_entry.dart';
 
 enum PaperStatus {
   idea,
@@ -93,6 +94,8 @@ class Paper extends Equatable {
   final DateTime? deadline;
   final List<String> tags;
   final String currentlyWith;
+  final String notes;
+  final List<SubmissionEntry> submissions;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -109,6 +112,8 @@ class Paper extends Equatable {
     this.deadline,
     this.tags = const [],
     this.currentlyWith = '',
+    this.notes = '',
+    this.submissions = const [],
     required this.createdAt,
     required this.updatedAt,
   });
@@ -126,6 +131,8 @@ class Paper extends Equatable {
     DateTime? deadline,
     List<String>? tags,
     String? currentlyWith,
+    String? notes,
+    List<SubmissionEntry>? submissions,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -142,6 +149,8 @@ class Paper extends Equatable {
       deadline: deadline ?? this.deadline,
       tags: tags ?? this.tags,
       currentlyWith: currentlyWith ?? this.currentlyWith,
+      notes: notes ?? this.notes,
+      submissions: submissions ?? this.submissions,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -160,6 +169,8 @@ class Paper extends Equatable {
       'deadline': deadline?.toIso8601String(),
       'tags': tags,
       'currentlyWith': currentlyWith,
+      'notes': notes,
+      'submissions': submissions.map((s) => s.toMap()).toList(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -187,6 +198,12 @@ class Paper extends Equatable {
           : null,
       tags: List<String>.from(map['tags'] ?? []),
       currentlyWith: map['currentlyWith'] ?? '',
+      notes: map['notes'] ?? '',
+      submissions: (map['submissions'] as List<dynamic>?)
+              ?.map((e) =>
+                  SubmissionEntry.fromMap(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       createdAt: map['createdAt'] != null
           ? DateTime.parse(map['createdAt'])
           : DateTime.now(),
@@ -210,6 +227,8 @@ class Paper extends Equatable {
         deadline,
         tags,
         currentlyWith,
+        notes,
+        submissions,
         createdAt,
         updatedAt,
       ];

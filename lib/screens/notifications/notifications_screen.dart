@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:paper_tracker/blocs/auth/auth_bloc.dart';
 import 'package:paper_tracker/blocs/auth/auth_state.dart';
 import 'package:paper_tracker/blocs/notification/notification_bloc.dart';
@@ -9,9 +8,11 @@ import 'package:paper_tracker/blocs/notification/notification_event.dart';
 import 'package:paper_tracker/blocs/notification/notification_state.dart';
 import 'package:paper_tracker/config/theme.dart';
 import 'package:paper_tracker/models/notification_model.dart';
+import 'package:paper_tracker/widgets/shimmer_loading.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:paper_tracker/services/notification_service.dart';
+import 'package:paper_tracker/utils/time_utils.dart';
 
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
@@ -45,19 +46,42 @@ class NotificationsScreen extends StatelessWidget {
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'clear') {
-                context
-                    .read<NotificationBloc>()
-                    .add(NotificationClearAll(userId));
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Clear All Notifications'),
+                    content: const Text(
+                        'Are you sure you want to clear all notifications? This action cannot be undone.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          context
+                              .read<NotificationBloc>()
+                              .add(NotificationClearAll(userId));
+                        },
+                        child: Text(
+                          'Clear All',
+                          style: TextStyle(color: Theme.of(context).colorScheme.error),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
               }
             },
             itemBuilder: (_) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'clear',
                 child: Row(
                   children: [
-                    Icon(Icons.delete_sweep, size: 18, color: AppTheme.errorColor),
-                    SizedBox(width: 8),
-                    Text('Clear All'),
+                    Icon(Icons.delete_sweep, size: 18, color: Theme.of(context).colorScheme.error),
+                    const SizedBox(width: 8),
+                    const Text('Clear All'),
                   ],
                 ),
               ),
@@ -68,7 +92,7 @@ class NotificationsScreen extends StatelessWidget {
       body: BlocBuilder<NotificationBloc, NotificationState>(
         builder: (context, state) {
           if (state is NotificationLoading) {
-            return const Center(child: CircularProgressIndicator());
+            return _buildNotificationsShimmer();
           }
 
           final notifications = state is NotificationsLoaded ? state.notifications : <NotificationModel>[];
@@ -78,7 +102,7 @@ class NotificationsScreen extends StatelessWidget {
               const _WebPermissionBanner(),
               Expanded(
                 child: notifications.isEmpty
-                    ? _buildEmptyState()
+                    ? _buildEmptyState(context)
                     : _buildNotificationList(context, notifications, userId),
               ),
             ],
@@ -88,7 +112,7 @@ class NotificationsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -96,30 +120,30 @@ class NotificationsScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.1),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.notifications_none_rounded,
               size: 56,
-              color: AppTheme.primaryLight,
+              color: Theme.of(context).colorScheme.primary,
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             'No notifications yet',
             style: TextStyle(
-              color: AppTheme.textPrimary,
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'You\'ll be notified about comments,\ntask assignments, and collaborations.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: AppTheme.textMuted,
+              color: Theme.of(context).textTheme.bodySmall?.color,
               fontSize: 14,
             ),
           ),
@@ -130,17 +154,23 @@ class NotificationsScreen extends StatelessWidget {
 
   Widget _buildNotificationList(
       BuildContext context, List<NotificationModel> notifications, String userId) {
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: notifications.length,
-      separatorBuilder: (_, __) => Divider(
-        color: AppTheme.dividerColor.withOpacity(0.3),
-        height: 1,
-        indent: 72,
-      ),
-      itemBuilder: (context, index) {
-        final notification = notifications[index];
-        return _NotificationTile(
+    return RefreshIndicator(
+      onRefresh: () async {
+        context
+            .read<NotificationBloc>()
+            .add(NotificationsLoadRequested(userId));
+      },
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: notifications.length,
+        separatorBuilder: (_, _) => Divider(
+          color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
+          height: 1,
+          indent: 72,
+        ),
+        itemBuilder: (context, index) {
+          final notification = notifications[index];
+          return _NotificationTile(
           notification: notification,
           onTap: () {
             // Mark as read
@@ -165,6 +195,45 @@ class NotificationsScreen extends StatelessWidget {
                   ),
                 );
           },
+        );
+        },
+      ),
+    );
+  }
+
+  Widget _buildNotificationsShimmer() {
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      itemCount: 5,
+      physics: const NeverScrollableScrollPhysics(),
+      separatorBuilder: (_, _) => const SizedBox(height: 16),
+      itemBuilder: (context, index) {
+        return const Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Icon leading shimmer
+            ShimmerLoading(width: 44, height: 44, borderRadius: 12),
+            SizedBox(width: 12),
+            // Message lines shimmer
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      ShimmerLoading(width: 120, height: 16, borderRadius: 4),
+                      ShimmerLoading(width: 50, height: 14, borderRadius: 4),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  ShimmerLoading(width: double.infinity, height: 14, borderRadius: 4),
+                  SizedBox(height: 4),
+                  ShimmerLoading(width: 200, height: 14, borderRadius: 4),
+                ],
+              ),
+            ),
+          ],
         );
       },
     );
@@ -231,14 +300,14 @@ class _NotificationTile extends StatelessWidget {
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        color: AppTheme.errorColor.withOpacity(0.2),
-        child: const Icon(Icons.delete_rounded, color: AppTheme.errorColor),
+        color: Theme.of(context).colorScheme.error.withValues(alpha: 0.2),
+        child: Icon(Icons.delete_rounded, color: Theme.of(context).colorScheme.error),
       ),
       onDismissed: (_) => onDismissed(),
       child: Material(
         color: notification.isRead
             ? Colors.transparent
-            : AppTheme.primaryColor.withOpacity(0.04),
+            : Theme.of(context).colorScheme.primary.withValues(alpha: 0.04),
         child: InkWell(
           onTap: onTap,
           child: Padding(
@@ -251,7 +320,7 @@ class _NotificationTile extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.12),
+                    color: color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(_typeIcon(), color: color, size: 22),
@@ -268,7 +337,7 @@ class _NotificationTile extends StatelessWidget {
                             child: Text(
                               notification.title,
                               style: TextStyle(
-                                color: AppTheme.textPrimary,
+                                color: Theme.of(context).colorScheme.onSurface,
                                 fontSize: 14,
                                 fontWeight: notification.isRead
                                     ? FontWeight.w400
@@ -278,8 +347,8 @@ class _NotificationTile extends StatelessWidget {
                           ),
                           Text(
                             timeAgo,
-                            style: const TextStyle(
-                              color: AppTheme.textMuted,
+                            style: TextStyle(
+                              color: Theme.of(context).textTheme.bodySmall?.color,
                               fontSize: 12,
                             ),
                           ),
@@ -290,8 +359,8 @@ class _NotificationTile extends StatelessWidget {
                         notification.message,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppTheme.textSecondary,
+                        style: TextStyle(
+                          color: Theme.of(context).textTheme.bodyMedium?.color,
                           fontSize: 13,
                         ),
                       ),
@@ -300,7 +369,7 @@ class _NotificationTile extends StatelessWidget {
                         Text(
                           'by ${notification.senderName}',
                           style: TextStyle(
-                            color: color.withOpacity(0.8),
+                            color: color.withValues(alpha: 0.8),
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
@@ -317,7 +386,7 @@ class _NotificationTile extends StatelessWidget {
                     height: 8,
                     margin: const EdgeInsets.only(top: 6),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor,
+                      color: Theme.of(context).colorScheme.primary,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -330,16 +399,7 @@ class _NotificationTile extends StatelessWidget {
     );
   }
 
-  String _formatTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final diff = now.difference(dateTime);
-
-    if (diff.inMinutes < 1) return 'now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
-    if (diff.inHours < 24) return '${diff.inHours}h';
-    if (diff.inDays < 7) return '${diff.inDays}d';
-    return DateFormat('MMM d').format(dateTime);
-  }
+  String _formatTimeAgo(DateTime dateTime) => timeAgo(dateTime, short: true);
 }
 
 class _WebPermissionBanner extends StatefulWidget {
@@ -380,13 +440,13 @@ class _WebPermissionBannerState extends State<_WebPermissionBanner> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDenied
-            ? AppTheme.errorColor.withOpacity(0.1)
-            : AppTheme.primaryColor.withOpacity(0.1),
+            ? Theme.of(context).colorScheme.error.withValues(alpha: 0.1)
+            : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isDenied
-              ? AppTheme.errorColor.withOpacity(0.3)
-              : AppTheme.primaryColor.withOpacity(0.3),
+              ? Theme.of(context).colorScheme.error.withValues(alpha: 0.3)
+              : Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -398,7 +458,7 @@ class _WebPermissionBannerState extends State<_WebPermissionBanner> {
                 isDenied
                     ? Icons.warning_amber_rounded
                     : Icons.info_outline_rounded,
-                color: isDenied ? AppTheme.errorColor : AppTheme.primaryLight,
+                color: isDenied ? Theme.of(context).colorScheme.error : Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -406,8 +466,8 @@ class _WebPermissionBannerState extends State<_WebPermissionBanner> {
                   isDenied
                       ? 'Notifications Blocked'
                       : 'Enable Web Notifications',
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                   ),
@@ -420,8 +480,8 @@ class _WebPermissionBannerState extends State<_WebPermissionBanner> {
             isDenied
                 ? 'Web notifications are blocked in your browser settings. Please enable them in your browser URL bar or site settings to get real-time updates.'
                 : 'Get browser push notifications when collaborators edit papers, assign you tasks, or leave comments.',
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
+            style: TextStyle(
+              color: Theme.of(context).textTheme.bodyMedium?.color,
               fontSize: 13,
             ),
           ),
@@ -437,7 +497,7 @@ class _WebPermissionBannerState extends State<_WebPermissionBanner> {
                 icon: const Icon(Icons.notifications_active_outlined, size: 18),
                 label: const Text('Enable Notifications'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
@@ -452,4 +512,5 @@ class _WebPermissionBannerState extends State<_WebPermissionBanner> {
     );
   }
 }
+
 

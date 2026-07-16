@@ -7,7 +7,6 @@ import 'package:paper_tracker/blocs/auth/auth_state.dart';
 import 'package:paper_tracker/blocs/chat_detail/chat_detail_bloc.dart';
 import 'package:paper_tracker/blocs/chat_detail/chat_detail_event.dart';
 import 'package:paper_tracker/blocs/chat_detail/chat_detail_state.dart';
-import 'package:paper_tracker/config/theme.dart';
 import 'package:paper_tracker/models/chat_message.dart';
 
 class ChatDetailScreen extends StatefulWidget {
@@ -28,9 +27,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   void initState() {
     super.initState();
     final authBloc = context.read<AuthBloc>();
-    currentUserId = (authBloc.state as AuthAuthenticated).user.uid;
+    final authState = authBloc.state;
+    if (authState is! AuthAuthenticated) return;
+    currentUserId = authState.user.uid;
 
-    context.read<ChatDetailBloc>().add(LoadChatMessages(widget.chatId));
+    context.read<ChatDetailBloc>().add(LoadChatMessages(widget.chatId, currentUserId));
   }
 
   @override
@@ -79,7 +80,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     return Center(
                       child: Text(
                         'No messages yet. Say hi!',
-                        style: TextStyle(color: AppTheme.textSecondary),
+                        style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
                       ),
                     );
                   }
@@ -115,14 +116,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         margin: const EdgeInsets.only(bottom: 8, top: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isMe ? AppTheme.primaryColor : AppTheme.surfaceColor,
+          color: isMe ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
             bottomLeft: Radius.circular(isMe ? 16 : 0),
             bottomRight: Radius.circular(isMe ? 0 : 16),
           ),
-          border: isMe ? null : Border.all(color: AppTheme.dividerColor),
+          border: isMe ? null : Border.all(color: Theme.of(context).dividerColor),
         ),
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
         child: Column(
@@ -132,7 +133,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             Text(
               message.text,
               style: TextStyle(
-                color: isMe ? Colors.white : AppTheme.textPrimary,
+                color: isMe ? Colors.white : Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 4),
@@ -140,7 +141,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               DateFormat.jm().format(message.timestamp),
               style: TextStyle(
                 fontSize: 10,
-                color: isMe ? Colors.white70 : AppTheme.textSecondary,
+                color: isMe ? Colors.white70 : Theme.of(context).textTheme.bodySmall?.color,
               ),
             ),
           ],
@@ -153,9 +154,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
+        color: Theme.of(context).colorScheme.surface,
         border: Border(
-          top: BorderSide(color: AppTheme.dividerColor, width: 0.5),
+          top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5),
         ),
       ),
       child: SafeArea(
@@ -166,13 +167,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 controller: _messageController,
                 decoration: InputDecoration(
                   hintText: 'Type a message...',
-                  hintStyle: TextStyle(color: AppTheme.textSecondary),
+                  hintStyle: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,
                   ),
                   filled: true,
-                  fillColor: AppTheme.backgroundColor,
+                  fillColor: Theme.of(context).scaffoldBackgroundColor,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 ),
                 textCapitalization: TextCapitalization.sentences,
@@ -181,8 +182,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             ),
             const SizedBox(width: 8),
             Container(
-              decoration: const BoxDecoration(
-                color: AppTheme.primaryColor,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
                 shape: BoxShape.circle,
               ),
               child: IconButton(

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 import 'package:paper_tracker/blocs/auth/auth_bloc.dart';
 import 'package:paper_tracker/blocs/auth/auth_state.dart';
-import 'package:paper_tracker/config/theme.dart';
+import 'package:paper_tracker/blocs/paper/paper_bloc.dart';
+import 'package:paper_tracker/blocs/paper/paper_state.dart';
 import 'package:paper_tracker/models/comment.dart';
 import 'package:paper_tracker/repositories/comment_repository.dart';
-import 'package:paper_tracker/repositories/paper_repository.dart';
+import 'package:paper_tracker/utils/time_utils.dart';
 import 'package:paper_tracker/widgets/empty_state.dart';
 
 class CommentsTab extends StatefulWidget {
@@ -71,10 +71,10 @@ class _CommentsTabState extends State<CommentsTab> {
         Container(
           padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
           decoration: BoxDecoration(
-            color: AppTheme.surfaceColor,
+            color: Theme.of(context).colorScheme.surface,
             border: Border(
               top: BorderSide(
-                color: AppTheme.dividerColor.withOpacity(0.5),
+                color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
               ),
             ),
           ),
@@ -104,9 +104,9 @@ class _CommentsTabState extends State<CommentsTab> {
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(
+                      : Icon(
                           Icons.send_rounded,
-                          color: AppTheme.primaryColor,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                 ),
               ],
@@ -126,70 +126,166 @@ class _CommentsTabState extends State<CommentsTab> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Align(
         alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-        child: Container(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.75,
-          ),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isMe
-                ? AppTheme.primaryColor.withOpacity(0.2)
-                : AppTheme.cardColor,
-            borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(14),
-              topRight: const Radius.circular(14),
-              bottomLeft: Radius.circular(isMe ? 14 : 4),
-              bottomRight: Radius.circular(isMe ? 4 : 14),
+        child: GestureDetector(
+          onLongPress: isMe ? () => _showCommentActions(comment) : null,
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.75,
             ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (!isMe)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    comment.authorName.isNotEmpty
-                        ? comment.authorName
-                        : 'Unknown',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.primaryLight,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isMe
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)
+                  : Theme.of(context).cardColor,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(14),
+                topRight: const Radius.circular(14),
+                bottomLeft: Radius.circular(isMe ? 14 : 4),
+                bottomRight: Radius.circular(isMe ? 4 : 14),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!isMe)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      comment.authorName.isNotEmpty
+                          ? comment.authorName
+                          : 'Unknown',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                   ),
+                Text(
+                  comment.text,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).colorScheme.onSurface,
+                    height: 1.4,
+                  ),
                 ),
-              Text(
-                comment.text,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textPrimary,
-                  height: 1.4,
+                const SizedBox(height: 4),
+                Text(
+                  _formatTime(comment.createdAt),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Theme.of(context).textTheme.bodySmall?.color,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _formatTime(comment.createdAt),
-                style: TextStyle(
-                  fontSize: 10,
-                  color: AppTheme.textMuted,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  String _formatTime(DateTime dt) {
-    final now = DateTime.now();
-    final diff = now.difference(dt);
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
-    if (diff.inDays < 1) return '${diff.inHours}h ago';
-    return DateFormat('MMM d, HH:mm').format(dt);
+  void _showCommentActions(Comment comment) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Edit'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showEditDialog(comment);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('Delete', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showDeleteConfirmation(comment);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.cancel_outlined),
+              title: const Text('Cancel'),
+              onTap: () => Navigator.pop(ctx),
+            ),
+          ],
+        ),
+      ),
+    );
   }
+
+  void _showEditDialog(Comment comment) {
+    final controller = TextEditingController(text: comment.text);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Comment'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'Edit your comment...',
+            border: OutlineInputBorder(),
+          ),
+          maxLines: 3,
+          minLines: 1,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final newText = controller.text.trim();
+              if (newText.isEmpty || newText == comment.text) {
+                Navigator.pop(ctx);
+                return;
+              }
+              Navigator.pop(ctx);
+              await context
+                  .read<CommentRepository>()
+                  .updateComment(comment.id, newText);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(Comment comment) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Comment'),
+        content: const Text('Are you sure you want to delete this comment?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await context
+                  .read<CommentRepository>()
+                  .deleteComment(comment.id);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTime(DateTime dt) => timeAgo(dt);
 
   Future<void> _sendComment() async {
     final text = _commentController.text.trim();
@@ -209,17 +305,24 @@ class _CommentsTabState extends State<CommentsTab> {
       createdAt: DateTime.now(),
     );
 
-    // Fetch paper to get collaborator ids and title for notifications
-    final paper = await context
-        .read<PaperRepository>()
-        .getPaperById(widget.paperId);
+    List<String> authorIds = [];
+    String paperTitle = '';
+    final paperState = context.read<PaperBloc>().state;
+    if (paperState is PapersLoaded) {
+      final paper = paperState.papers.where((p) => p.id == widget.paperId).firstOrNull;
+      if (paper != null) {
+        authorIds = paper.authorIds;
+        paperTitle = paper.title;
+      }
+    }
 
     await context.read<CommentRepository>().addComment(
           comment,
-          paperAuthorIds: paper?.authorIds ?? [],
-          paperTitle: paper?.title ?? '',
+          paperAuthorIds: authorIds,
+          paperTitle: paperTitle,
         );
     _commentController.clear();
     setState(() => _isSending = false);
   }
 }
+

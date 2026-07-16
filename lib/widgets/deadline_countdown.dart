@@ -22,19 +22,19 @@ class DeadlineCountdown extends StatelessWidget {
     final String text;
 
     if (isPast) {
-      color = AppTheme.errorColor;
+      color = Theme.of(context).colorScheme.error;
       text = 'Overdue by ${-days} day${-days == 1 ? '' : 's'}';
     } else if (days == 0) {
-      color = AppTheme.errorColor;
+      color = Theme.of(context).colorScheme.error;
       text = 'Due today';
     } else if (days <= 3) {
       color = AppTheme.warningColor;
       text = '$days day${days == 1 ? '' : 's'} left';
     } else if (days <= 7) {
-      color = AppTheme.accentColor;
+      color = Theme.of(context).colorScheme.secondary;
       text = '$days days left';
     } else {
-      color = AppTheme.textMuted;
+      color = Theme.of(context).textTheme.bodySmall?.color ?? AppTheme.textMuted;
       text = '$days days left';
     }
 
@@ -59,9 +59,9 @@ class DeadlineCountdown extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -85,3 +85,4 @@ class DeadlineCountdown extends StatelessWidget {
     );
   }
 }
+

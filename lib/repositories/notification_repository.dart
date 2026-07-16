@@ -1,5 +1,6 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:paper_tracker/models/notification_model.dart';
+import 'package:paper_tracker/utils/firebase_utils.dart';
 
 class NotificationRepository {
   final FirebaseDatabase _db;
@@ -15,10 +16,10 @@ class NotificationRepository {
         .onValue
         .map((event) {
       if (!event.snapshot.exists) return <NotificationModel>[];
-      final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+      final data = safeCastMap(event.snapshot.value);
       final notifications = data.entries
           .map((e) => NotificationModel.fromMap(
-              e.key, Map<String, dynamic>.from(e.value)))
+              e.key, safeCastMap(e.value)))
           .toList();
       // Sort by createdAt descending (newest first)
       notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -89,7 +90,7 @@ class NotificationRepository {
     final snapshot = await _db.ref('notifications/$userId').get();
     if (!snapshot.exists) return;
 
-    final data = Map<String, dynamic>.from(snapshot.value as Map);
+    final data = safeCastMap(snapshot.value);
     final updates = <String, dynamic>{};
     for (final key in data.keys) {
       updates['notifications/$userId/$key/isRead'] = true;
@@ -97,6 +98,11 @@ class NotificationRepository {
     if (updates.isNotEmpty) {
       await _db.ref().update(updates);
     }
+  }
+
+  /// Save FCM token for a user
+  Future<void> saveFcmToken(String userId, String token) async {
+    await _db.ref('fcmTokens/$userId').set(token);
   }
 
   /// Delete a single notification

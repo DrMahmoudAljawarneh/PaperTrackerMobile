@@ -1,0 +1,54 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "users": {
+      ".read": "auth != null",
+      "$userId": {
+        ".write": "auth != null && auth.uid == $userId"
+      }
+    },
+    "papers": {
+      "$paperId": {
+        ".read": "auth != null && root.child('papersByUser').child(auth.uid).child($paperId).exists()",
+        ".write": "auth != null && (!data.exists() || root.child('papersByUser').child(auth.uid).child($paperId).exists())"
+      }
+    },
+    "papersByUser": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId"
+      }
+    },
+    "tasks": {
+      "$paperId": {
+        ".read": "auth != null && root.child('papersByUser').child(auth.uid).child($paperId).exists()",
+        ".write": "auth != null && root.child('papersByUser').child(auth.uid).child($paperId).exists()"
+      }
+    },
+    "comments": {
+      "$paperId": {
+        ".read": "auth != null && root.child('papersByUser').child(auth.uid).child($paperId).exists()",
+        ".write": "auth != null && root.child('papersByUser').child(auth.uid).child($paperId).exists()"
+      }
+    },
+    "chats": {
+      "$chatId": {
+        ".read": "auth != null && (data.child('user1Id').val() == auth.uid || data.child('user2Id').val() == auth.uid)",
+        ".write": "auth != null && (!data.exists() || data.child('user1Id').val() == auth.uid || data.child('user2Id').val() == auth.uid)"
+      }
+    },
+    "chatMessages": {
+      "$chatId": {
+        ".read": "auth != null && root.child('chats').child($chatId).exists() && (root.child('chats').child($chatId).child('user1Id').val() == auth.uid || root.child('chats').child($chatId).child('user2Id').val() == auth.uid)",
+        ".write": "auth != null && root.child('chats').child($chatId).exists() && (root.child('chats').child($chatId).child('user1Id').val() == auth.uid || root.child('chats').child($chatId).child('user2Id').val() == auth.uid)"
+      }
+    },
+    "notifications": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId"
+      }
+    }
+  }
+}

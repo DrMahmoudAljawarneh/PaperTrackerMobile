@@ -13,6 +13,8 @@ import 'package:paper_tracker/widgets/deadline_countdown.dart';
 import 'package:paper_tracker/widgets/empty_state.dart';
 import 'package:paper_tracker/widgets/status_badge.dart';
 import 'package:paper_tracker/services/update_service.dart';
+import 'package:paper_tracker/utils/time_utils.dart';
+import 'package:paper_tracker/widgets/shimmer_loading.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -50,7 +52,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: BlocBuilder<DashboardBloc, DashboardState>(
         builder: (context, state) {
           if (state is DashboardLoading) {
-            return const Center(child: CircularProgressIndicator());
+            return _buildDashboardShimmer();
           }
           if (state is DashboardError) {
             return EmptyState(
@@ -62,9 +64,62 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (state is DashboardLoaded) {
             return _buildDashboard(state);
           }
-          return const Center(child: CircularProgressIndicator());
+          return _buildDashboardShimmer();
         },
       ),
+    );
+  }
+
+  Widget _buildDashboardShimmer() {
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        const SizedBox(height: 16),
+        // Greeting shimmer
+        const ShimmerLoading(width: 140, height: 20, borderRadius: 4),
+        const SizedBox(height: 8),
+        const ShimmerLoading(width: 220, height: 28, borderRadius: 4),
+        const SizedBox(height: 24),
+
+        // Grid of 4 stats cards shimmer
+        GridView.count(
+          shrinkWrap: true,
+          crossAxisCount: 2,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 1.4,
+          physics: const NeverScrollableScrollPhysics(),
+          children: List.generate(
+            4,
+            (index) => const ShimmerLoading(width: double.infinity, height: double.infinity, borderRadius: 16),
+          ),
+        ),
+        const SizedBox(height: 32),
+
+        // Section header shimmer
+        const ShimmerLoading(width: 120, height: 20, borderRadius: 4),
+        const SizedBox(height: 16),
+
+        // Distribution bar shimmer
+        const ShimmerLoading(width: double.infinity, height: 24, borderRadius: 12),
+        const SizedBox(height: 32),
+
+        // Section header shimmer
+        const ShimmerLoading(width: 150, height: 20, borderRadius: 4),
+        const SizedBox(height: 16),
+
+        // Attention item list shimmer
+        Column(
+          children: List.generate(
+            2,
+            (index) => const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: ShimmerLoading(width: double.infinity, height: 72, borderRadius: 12),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -110,7 +165,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
                 'No upcoming deadlines 🎉',
-                style: TextStyle(color: AppTheme.textMuted),
+                style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
               ),
             )
           else
@@ -125,7 +180,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
                 'No papers yet. Create your first one!',
-                style: TextStyle(color: AppTheme.textMuted),
+                style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
               ),
             )
           else
@@ -157,7 +212,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 style: Theme.of(context)
                     .textTheme
                     .bodyMedium
-                    ?.copyWith(color: AppTheme.textMuted),
+                    ?.copyWith(color: Theme.of(context).textTheme.bodySmall?.color),
               ),
             ],
           );
@@ -177,33 +232,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
         crossAxisSpacing: 12,
         childAspectRatio: 1.6,
         children: [
-          _buildStatCard(
-            'Total Papers',
-            '${state.totalPapers}',
-            Icons.article_rounded,
-            AppTheme.primaryColor,
-            const Color(0xFF1A237E),
+          GestureDetector(
+            onTap: () => context.push('/papers'),
+            child: _buildStatCard(
+              'Total Papers',
+              '${state.totalPapers}',
+              Icons.article_rounded,
+              AppTheme.primaryColor,
+              const Color(0xFF1A237E),
+            ),
           ),
-          _buildStatCard(
-            'In Progress',
-            '${state.inProgressPapers}',
-            Icons.edit_note_rounded,
-            AppTheme.accentColor,
-            const Color(0xFF004D40),
+          GestureDetector(
+            onTap: () => context.push(
+              '/papers',
+              extra: {
+                PaperStatus.drafting,
+                PaperStatus.writing,
+                PaperStatus.internalReview,
+                PaperStatus.revision,
+              },
+            ),
+            child: _buildStatCard(
+              'In Progress',
+              '${state.inProgressPapers}',
+              Icons.edit_note_rounded,
+              AppTheme.accentColor,
+              const Color(0xFF004D40),
+            ),
           ),
-          _buildStatCard(
-            'Submitted',
-            '${state.submittedPapers}',
-            Icons.send_rounded,
-            AppTheme.warningColor,
-            const Color(0xFF4A2800),
+          GestureDetector(
+            onTap: () => context.push(
+              '/papers',
+              extra: {PaperStatus.submitted, PaperStatus.underReview},
+            ),
+            child: _buildStatCard(
+              'Submitted',
+              '${state.submittedPapers}',
+              Icons.send_rounded,
+              AppTheme.warningColor,
+              const Color(0xFF4A2800),
+            ),
           ),
-          _buildStatCard(
-            'Published',
-            '${state.publishedPapers}',
-            Icons.celebration_rounded,
-            AppTheme.successColor,
-            const Color(0xFF1B5E20),
+          GestureDetector(
+            onTap: () => context.push(
+              '/papers',
+              extra: {PaperStatus.published},
+            ),
+            child: _buildStatCard(
+              'Published',
+              '${state.publishedPapers}',
+              Icons.celebration_rounded,
+              AppTheme.successColor,
+              const Color(0xFF1B5E20),
+            ),
           ),
         ],
       ),
@@ -217,14 +298,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            bgTint.withOpacity(0.6),
-            AppTheme.cardColor,
+            bgTint.withValues(alpha: 0.6),
+            Theme.of(context).cardColor,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.15)),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -235,7 +316,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, size: 16, color: color),
@@ -255,7 +336,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             label,
             style: TextStyle(
               fontSize: 13,
-              color: AppTheme.textSecondary,
+              color: Theme.of(context).textTheme.bodyMedium?.color,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -322,7 +403,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(width: 4),
                   Text(
                     '${entry.key.label} (${entry.value})',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 11,
                       color: AppTheme.textMuted,
                     ),
@@ -361,16 +442,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.2)),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
+                color: color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, size: 18, color: color),
@@ -408,24 +489,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildQuickActions() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: _buildActionButton(
-              icon: Icons.add_rounded,
-              label: 'New Paper',
-              color: AppTheme.primaryColor,
-              onTap: () => context.push('/papers/add'),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionButton(
+                  icon: Icons.add_rounded,
+                  label: 'New Paper',
+                  color: AppTheme.primaryColor,
+                  onTap: () => context.push('/papers/add'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildActionButton(
+                  icon: Icons.article_outlined,
+                  label: 'View All',
+                  color: AppTheme.accentColor,
+                  onTap: () => context.go('/papers'),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildActionButton(
-              icon: Icons.article_outlined,
-              label: 'View All',
-              color: AppTheme.accentColor,
-              onTap: () => context.go('/papers'),
-            ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionButton(
+                  icon: Icons.checklist_rounded,
+                  label: 'All Tasks',
+                  color: AppTheme.warningColor,
+                  onTap: () => context.push('/tasks'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildActionButton(
+                  icon: Icons.calendar_month_rounded,
+                  label: 'Calendar',
+                  color: AppTheme.successColor,
+                  onTap: () => context.push('/calendar'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -443,9 +551,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.2)),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -489,7 +597,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppTheme.cardColor,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -512,7 +620,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     DateFormat('MMM d, yyyy').format(paper.deadline!),
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppTheme.textMuted,
+                      color: Theme.of(context).textTheme.bodySmall?.color,
                     ),
                   ),
                 ],
@@ -533,7 +641,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppTheme.cardColor,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -556,7 +664,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     'Updated ${_timeAgo(paper.updatedAt)}',
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppTheme.textMuted,
+                      color: Theme.of(context).textTheme.bodySmall?.color,
                     ),
                   ),
                 ],
@@ -569,11 +677,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  String _timeAgo(DateTime dateTime) {
-    final diff = DateTime.now().difference(dateTime);
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    return DateFormat('MMM d').format(dateTime);
-  }
+  String _timeAgo(DateTime dateTime) => timeAgo(dateTime);
 }
+

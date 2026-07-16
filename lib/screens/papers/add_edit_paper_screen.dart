@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -6,11 +7,11 @@ import 'package:paper_tracker/blocs/auth/auth_bloc.dart';
 import 'package:paper_tracker/blocs/auth/auth_state.dart';
 import 'package:paper_tracker/blocs/paper/paper_bloc.dart';
 import 'package:paper_tracker/blocs/paper/paper_event.dart';
-import 'package:paper_tracker/config/theme.dart';
 import 'package:paper_tracker/models/paper.dart';
 import 'package:paper_tracker/models/user_model.dart';
 import 'package:paper_tracker/repositories/auth_repository.dart';
 import 'package:paper_tracker/repositories/paper_repository.dart';
+import 'package:paper_tracker/services/metadata_service.dart';
 
 class AddEditPaperScreen extends StatefulWidget {
   final String? paperId;
@@ -32,6 +33,7 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
   final _authorController = TextEditingController();
   final _collaboratorController = TextEditingController();
   final _currentlyWithController = TextEditingController();
+  final _importController = TextEditingController();
 
   PaperStatus _status = PaperStatus.idea;
   PaperPriority _priority = PaperPriority.medium;
@@ -41,8 +43,10 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
   List<UserModel> _collaborators = [];
   List<UserModel> _searchResults = [];
   bool _isSearching = false;
+  bool _isImporting = false;
   Paper? _existingPaper;
   bool _isLoading = false;
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -89,6 +93,7 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _titleController.dispose();
     _abstractController.dispose();
     _venueController.dispose();
@@ -96,6 +101,7 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
     _authorController.dispose();
     _collaboratorController.dispose();
     _currentlyWithController.dispose();
+    _importController.dispose();
     super.dispose();
   }
 
@@ -113,8 +119,8 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
             onPressed: _savePaper,
             child: Text(
               widget.isEditing ? 'Save' : 'Create',
-              style: const TextStyle(
-                color: AppTheme.primaryColor,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -128,6 +134,40 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
+                  // Import from DOI/arXiv
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _importController,
+                          decoration: const InputDecoration(
+                            labelText: 'DOI or arXiv ID',
+                            hintText: 'e.g. 10.1038/nature12373',
+                            prefixIcon: Icon(Icons.search),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _isImporting
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2),
+                              ),
+                            )
+                          : IconButton(
+                              onPressed: _importPaper,
+                              icon: const Icon(Icons.download),
+                              color:
+                                  Theme.of(context).colorScheme.primary,
+                            ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
                   // Title
                   TextFormField(
                     controller: _titleController,
@@ -219,12 +259,12 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
                   if (widget.isEditing) ...[
                     OutlinedButton.icon(
                       onPressed: _confirmDelete,
-                      icon: const Icon(Icons.delete_outline,
-                          color: AppTheme.errorColor),
-                      label: const Text('Delete Paper',
-                          style: TextStyle(color: AppTheme.errorColor)),
+                      icon: Icon(Icons.delete_outline,
+                          color: Theme.of(context).colorScheme.error),
+                      label: Text('Delete Paper',
+                          style: TextStyle(color: Theme.of(context).colorScheme.error)),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: AppTheme.errorColor),
+                        side: BorderSide(color: Theme.of(context).colorScheme.error),
                       ),
                     ),
                   ],
@@ -242,7 +282,7 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
     required ValueChanged<T?> onChanged,
   }) {
     return DropdownButtonFormField<T>(
-      value: value,
+      initialValue: value,
       decoration: InputDecoration(labelText: label),
       items: items
           .map((item) => DropdownMenuItem(
@@ -251,7 +291,7 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
               ))
           .toList(),
       onChanged: onChanged,
-      dropdownColor: AppTheme.cardColorLight,
+      dropdownColor: Theme.of(context).inputDecorationTheme.fillColor,
     );
   }
 
@@ -266,9 +306,9 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
           builder: (context, child) {
             return Theme(
               data: Theme.of(context).copyWith(
-                colorScheme: const ColorScheme.dark(
-                  primary: AppTheme.primaryColor,
-                  surface: AppTheme.surfaceColor,
+                colorScheme: ColorScheme.dark(
+                  primary: Theme.of(context).colorScheme.primary,
+                  surface: Theme.of(context).colorScheme.surface,
                 ),
               ),
               child: child!,
@@ -293,8 +333,8 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
                   : 'No deadline set',
               style: TextStyle(
                 color: _deadline != null
-                    ? AppTheme.textPrimary
-                    : AppTheme.textMuted,
+                    ? Theme.of(context).colorScheme.onSurface
+                    : Theme.of(context).textTheme.bodySmall?.color,
               ),
             ),
             if (_deadline != null)
@@ -329,7 +369,7 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
             IconButton(
               onPressed: () => _addTag(_tagController.text),
               icon: const Icon(Icons.add_circle_outline),
-              color: AppTheme.primaryColor,
+              color: Theme.of(context).colorScheme.primary,
             ),
           ],
         ),
@@ -387,15 +427,18 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
         ),
         // Search results
         if (_searchResults.isNotEmpty)
-          Container(
-            margin: const EdgeInsets.only(top: 4),
-            decoration: BoxDecoration(
-              color: AppTheme.cardColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.dividerColor),
-            ),
-            constraints: const BoxConstraints(maxHeight: 180),
-            child: ListView.builder(
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Material(
+              color: Theme.of(context).cardColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Theme.of(context).dividerColor),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 180),
+                child: ListView.builder(
               shrinkWrap: true,
               itemCount: _searchResults.length,
               itemBuilder: (context, index) {
@@ -404,14 +447,14 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
                   dense: true,
                   leading: CircleAvatar(
                     radius: 16,
-                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.2),
+                    backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
                     child: Text(
                       (user.displayName.isNotEmpty
                               ? user.displayName[0]
                               : user.email[0])
                           .toUpperCase(),
-                      style: const TextStyle(
-                        color: AppTheme.primaryColor,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
                       ),
@@ -429,6 +472,8 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
               },
             ),
           ),
+        ),
+      ),
         // Selected collaborators
         if (_collaborators.isNotEmpty) ...[
           const SizedBox(height: 12),
@@ -439,7 +484,7 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
                 .map((user) => Chip(
                       avatar: CircleAvatar(
                         radius: 12,
-                        backgroundColor: AppTheme.accentColor.withValues(alpha: 0.2),
+                        backgroundColor: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.2),
                         child: Text(
                           (user.displayName.isNotEmpty
                                   ? user.displayName[0]
@@ -465,30 +510,35 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
   }
 
   Future<void> _searchCollaborators(String query) async {
+    _searchDebounce?.cancel();
     if (query.length < 2) {
       setState(() => _searchResults = []);
       return;
     }
-    setState(() => _isSearching = true);
-    try {
-      final authState = context.read<AuthBloc>().state;
-      final currentUid =
-          authState is AuthAuthenticated ? authState.user.uid : '';
-      final results =
-          await context.read<AuthRepository>().searchUsers(query);
-      if (!mounted) return;
-      setState(() {
-        _searchResults = results
-            .where((u) =>
-                u.uid != currentUid &&
-                !_collaborators.any((c) => c.uid == u.uid))
-            .toList();
-        _isSearching = false;
-      });
-    } catch (e) {
-      debugPrint('Collaborator search error: $e');
-      if (mounted) setState(() => _isSearching = false);
-    }
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () async {
+      final currentQuery = _collaboratorController.text;
+      if (currentQuery.length < 2 || !mounted) return;
+      setState(() => _isSearching = true);
+      try {
+        final authState = context.read<AuthBloc>().state;
+        final currentUid =
+            authState is AuthAuthenticated ? authState.user.uid : '';
+        final results =
+            await context.read<AuthRepository>().searchUsers(currentQuery);
+        if (!mounted) return;
+        setState(() {
+          _searchResults = results
+              .where((u) =>
+                  u.uid != currentUid &&
+                  !_collaborators.any((c) => c.uid == u.uid))
+              .toList();
+          _isSearching = false;
+        });
+      } catch (e) {
+        debugPrint('Collaborator search error: $e');
+        if (mounted) setState(() => _isSearching = false);
+      }
+    });
   }
 
   void _addCollaborator(UserModel user) {
@@ -520,7 +570,7 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
             IconButton(
               onPressed: () => _addAuthor(_authorController.text),
               icon: const Icon(Icons.add_circle_outline),
-              color: AppTheme.primaryColor,
+              color: Theme.of(context).colorScheme.primary,
             ),
           ],
         ),
@@ -552,6 +602,32 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
         _authorController.clear();
       });
     }
+  }
+
+  Future<void> _importPaper() async {
+    final identifier = _importController.text.trim();
+    if (identifier.isEmpty) return;
+
+    setState(() => _isImporting = true);
+    final metadata = await MetadataService().fetch(identifier);
+    if (!mounted) return;
+
+    setState(() {
+      _isImporting = false;
+      if (metadata != null) {
+        _titleController.text = metadata.title;
+        _abstractController.text = metadata.abstract ?? '';
+        _venueController.text = metadata.venue ?? '';
+        _authors = metadata.authors;
+        _importController.clear();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to fetch metadata. Check the identifier and try again.'),
+          ),
+        );
+      }
+    });
   }
 
   void _savePaper() {
@@ -631,9 +707,9 @@ class _AddEditPaperScreenState extends State<AddEditPaperScreen> {
                   .add(PaperDeleteRequested(widget.paperId!));
               context.pop();
             },
-            child: const Text(
+            child: Text(
               'Delete',
-              style: TextStyle(color: AppTheme.errorColor),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ),
         ],

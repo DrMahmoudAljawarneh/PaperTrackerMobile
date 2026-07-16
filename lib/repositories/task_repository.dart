@@ -2,6 +2,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:paper_tracker/models/notification_model.dart';
 import 'package:paper_tracker/models/paper_task.dart';
 import 'package:paper_tracker/repositories/notification_repository.dart';
+import 'package:paper_tracker/utils/firebase_utils.dart';
 
 class TaskRepository {
   final FirebaseDatabase _db;
@@ -23,10 +24,10 @@ class TaskRepository {
         .onValue
         .map((event) {
       if (!event.snapshot.exists) return <PaperTask>[];
-      final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+      final data = safeCastMap(event.snapshot.value);
       final tasks = data.entries
           .map((e) =>
-              PaperTask.fromMap(e.key, Map<String, dynamic>.from(e.value)))
+              PaperTask.fromMap(e.key, safeCastMap(e.value)))
           .toList();
       // Sort by createdAt ascending (client-side)
       tasks.sort((a, b) => a.createdAt.compareTo(b.createdAt));
@@ -50,7 +51,7 @@ class TaskRepository {
         task.assigneeId.isNotEmpty &&
         currentUserId != null &&
         task.assigneeId != currentUserId) {
-      await _notificationRepository!.pushNotificationToMany(
+      await _notificationRepository.pushNotificationToMany(
         recipientIds: [task.assigneeId],
         senderId: currentUserId,
         senderName: currentUserName ?? '',
@@ -69,6 +70,25 @@ class TaskRepository {
   /// Update a task
   Future<void> updateTask(PaperTask task) async {
     await _tasksRef.child(task.id).update(task.toMap());
+  }
+
+  /// Update specific fields of a task without overwriting others
+  Future<void> updateTaskFields(
+    String taskId, {
+    required String title,
+    required String assigneeId,
+    DateTime? dueDate,
+    String? priority,
+    int? progress,
+  }) async {
+    final updateMap = <String, dynamic>{
+      'title': title,
+      'assigneeId': assigneeId,
+    };
+    if (dueDate != null) updateMap['dueDate'] = dueDate.toIso8601String();
+    if (priority != null) updateMap['priority'] = priority;
+    if (progress != null) updateMap['progress'] = progress;
+    await _tasksRef.child(taskId).update(updateMap);
   }
 
   /// Toggle task completion. Pass [currentUserId], [currentUserName], and [paperTitle]
@@ -92,7 +112,7 @@ class TaskRepository {
         assigneeId.isNotEmpty &&
         currentUserId != null &&
         assigneeId != currentUserId) {
-      await _notificationRepository!.pushNotificationToMany(
+      await _notificationRepository.pushNotificationToMany(
         recipientIds: [assigneeId],
         senderId: currentUserId,
         senderName: currentUserName ?? '',
@@ -106,6 +126,23 @@ class TaskRepository {
     }
   }
 
+  /// Get all tasks for a list of paper IDs (one-shot fetch)
+  Future<List<PaperTask>> getTasksForPapers(List<String> paperIds) async {
+    final snapshot = await _tasksRef.get();
+    if (!snapshot.exists) return [];
+    final data = safeCastMap(snapshot.value);
+    final paperIdSet = paperIds.toSet();
+    final tasks = <PaperTask>[];
+    for (final entry in data.entries) {
+      final map = safeCastMap(entry.value);
+      if (paperIdSet.contains(map['paperId'])) {
+        tasks.add(PaperTask.fromMap(entry.key, map));
+      }
+    }
+    tasks.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return tasks;
+  }
+
   /// Delete a task
   Future<void> deleteTask(String taskId) async {
     await _tasksRef.child(taskId).remove();
@@ -116,10 +153,10 @@ class TaskRepository {
     final snapshot =
         await _tasksRef.orderByChild('paperId').equalTo(paperId).get();
     if (!snapshot.exists) return {'total': 0, 'completed': 0};
-    final data = Map<String, dynamic>.from(snapshot.value as Map);
+    final data = safeCastMap(snapshot.value);
     final total = data.length;
     final completed = data.values
-        .where((v) => (v as Map)['completed'] == true)
+        .where((v) => v is Map && v['completed'] == true)
         .length;
     return {'total': total, 'completed': completed};
   }

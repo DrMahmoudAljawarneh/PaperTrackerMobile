@@ -9,7 +9,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UpdateService {
-  // TODO: Replace with your actual Firebase Hosting URL after first deploy
   static const String _baseUrl = 'https://papercheck-2026.web.app';
   static const String _versionUrl = '$_baseUrl/version.json';
 

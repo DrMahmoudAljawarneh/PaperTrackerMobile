@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+enum TaskPriority { high, medium, low }
+
 class PaperTask extends Equatable {
   final String id;
   final String paperId;
@@ -7,6 +9,8 @@ class PaperTask extends Equatable {
   final String assigneeId;
   final bool completed;
   final DateTime? dueDate;
+  final TaskPriority priority;
+  final int progress;
   final DateTime createdAt;
 
   const PaperTask({
@@ -16,6 +20,8 @@ class PaperTask extends Equatable {
     this.assigneeId = '',
     this.completed = false,
     this.dueDate,
+    this.priority = TaskPriority.medium,
+    this.progress = 0,
     required this.createdAt,
   });
 
@@ -26,6 +32,8 @@ class PaperTask extends Equatable {
     String? assigneeId,
     bool? completed,
     DateTime? dueDate,
+    TaskPriority? priority,
+    int? progress,
     DateTime? createdAt,
   }) {
     return PaperTask(
@@ -35,6 +43,8 @@ class PaperTask extends Equatable {
       assigneeId: assigneeId ?? this.assigneeId,
       completed: completed ?? this.completed,
       dueDate: dueDate ?? this.dueDate,
+      priority: priority ?? this.priority,
+      progress: progress ?? this.progress,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -46,6 +56,8 @@ class PaperTask extends Equatable {
       'assigneeId': assigneeId,
       'completed': completed,
       'dueDate': dueDate?.toIso8601String(),
+      'priority': priority.name,
+      'progress': progress,
       'createdAt': createdAt.toIso8601String(),
     };
   }
@@ -60,6 +72,11 @@ class PaperTask extends Equatable {
       dueDate: map['dueDate'] != null
           ? DateTime.parse(map['dueDate'])
           : null,
+      priority: TaskPriority.values.firstWhere(
+        (e) => e.name == map['priority'],
+        orElse: () => TaskPriority.medium,
+      ),
+      progress: (map['progress'] as num?)?.toInt() ?? 0,
       createdAt: map['createdAt'] != null
           ? DateTime.parse(map['createdAt'])
           : DateTime.now(),
@@ -68,5 +85,5 @@ class PaperTask extends Equatable {
 
   @override
   List<Object?> get props =>
-      [id, paperId, title, assigneeId, completed, dueDate, createdAt];
+      [id, paperId, title, assigneeId, completed, dueDate, priority, progress, createdAt];
 }

@@ -68,6 +68,27 @@ class TaskToggleRequested extends TaskEvent {
       ];
 }
 
+class TaskEditRequested extends TaskEvent {
+  final String taskId;
+  final String title;
+  final DateTime? dueDate;
+  final String assigneeId;
+  final String? priority;
+  final int? progress;
+
+  const TaskEditRequested({
+    required this.taskId,
+    required this.title,
+    this.dueDate,
+    this.assigneeId = '',
+    this.priority,
+    this.progress,
+  });
+
+  @override
+  List<Object?> get props => [taskId, title, dueDate, assigneeId, priority, progress];
+}
+
 class TaskDeleteRequested extends TaskEvent {
   final String taskId;
 

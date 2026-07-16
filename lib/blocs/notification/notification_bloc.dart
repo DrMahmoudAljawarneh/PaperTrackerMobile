@@ -5,15 +5,15 @@ import 'package:paper_tracker/blocs/notification/notification_state.dart';
 import 'package:paper_tracker/models/notification_model.dart';
 import 'package:paper_tracker/repositories/notification_repository.dart';
 import 'package:paper_tracker/services/notification_service.dart';
+import 'package:paper_tracker/utils/notification_prefs.dart';
 
 class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
   final NotificationRepository _notificationRepository;
   final NotificationService _notificationService;
   StreamSubscription<List<NotificationModel>>? _subscription;
 
-  /// Track IDs we've already shown local alerts for, so we don't re-fire
-  /// on every stream update.
   final Set<String> _shownNotificationIds = {};
+  static const int _maxShownIds = 200;
 
   NotificationBloc({
     required NotificationRepository notificationRepository,
@@ -27,6 +27,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
     on<NotificationMarkAllAsRead>(_onMarkAllAsRead);
     on<NotificationDelete>(_onDelete);
     on<NotificationClearAll>(_onClearAll);
+    on<_NotificationLoadError>(_onLoadError);
   }
 
   Future<void> _onLoadRequested(
@@ -41,22 +42,32 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
         add(NotificationsUpdated(notifications));
       },
       onError: (error) {
-        add(const NotificationsUpdated([]));
+        add(_NotificationLoadError(error.toString()));
       },
     );
   }
 
-  void _onUpdated(
+  Future<void> _onUpdated(
     NotificationsUpdated event,
     Emitter<NotificationState> emit,
-  ) {
+  ) async {
     final notifications = event.notifications.cast<NotificationModel>();
-    final unreadCount = notifications.where((n) => !n.isRead).length;
+    final prefs = await NotificationPrefs.getAll();
+    final filtered =
+        notifications.where((n) => prefs[n.type] ?? true).toList();
+    final unreadCount = filtered.where((n) => !n.isRead).length;
 
-    // Fire local OS notifications for any new unread items
-    for (final n in notifications) {
+    final recent = filtered.length > 20
+        ? filtered.sublist(0, 20)
+        : filtered;
+    for (final n in recent) {
       if (!n.isRead && !_shownNotificationIds.contains(n.id)) {
         _shownNotificationIds.add(n.id);
+        if (_shownNotificationIds.length > _maxShownIds) {
+          final excess = _shownNotificationIds.length - _maxShownIds;
+          final toRemove = _shownNotificationIds.take(excess).toList();
+          toRemove.forEach(_shownNotificationIds.remove);
+        }
         _notificationService.showNotification(
           id: n.id.hashCode,
           title: '${n.type.icon} ${n.title}',
@@ -67,7 +78,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
     }
 
     emit(NotificationsLoaded(
-      notifications: notifications,
+      notifications: filtered,
       unreadCount: unreadCount,
     ));
   }
@@ -76,23 +87,29 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
     NotificationMarkAsRead event,
     Emitter<NotificationState> emit,
   ) async {
-    await _notificationRepository.markAsRead(
-        event.userId, event.notificationId);
+    try {
+      await _notificationRepository.markAsRead(
+          event.userId, event.notificationId);
+    } catch (_) {}
   }
 
   Future<void> _onMarkAllAsRead(
     NotificationMarkAllAsRead event,
     Emitter<NotificationState> emit,
   ) async {
-    await _notificationRepository.markAllAsRead(event.userId);
+    try {
+      await _notificationRepository.markAllAsRead(event.userId);
+    } catch (_) {}
   }
 
   Future<void> _onDelete(
     NotificationDelete event,
     Emitter<NotificationState> emit,
   ) async {
-    await _notificationRepository.deleteNotification(
-        event.userId, event.notificationId);
+    try {
+      await _notificationRepository.deleteNotification(
+          event.userId, event.notificationId);
+    } catch (_) {}
   }
 
   Future<void> _onClearAll(
@@ -100,7 +117,16 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
     Emitter<NotificationState> emit,
   ) async {
     _shownNotificationIds.clear();
-    await _notificationRepository.clearAll(event.userId);
+    try {
+      await _notificationRepository.clearAll(event.userId);
+    } catch (_) {}
+  }
+
+  void _onLoadError(
+    _NotificationLoadError event,
+    Emitter<NotificationState> emit,
+  ) {
+    emit(NotificationError(event.message));
   }
 
   @override
@@ -108,4 +134,12 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
     _subscription?.cancel();
     return super.close();
   }
+}
+
+class _NotificationLoadError extends NotificationEvent {
+  final String message;
+  const _NotificationLoadError(this.message);
+
+  @override
+  List<Object?> get props => [message];
 }
