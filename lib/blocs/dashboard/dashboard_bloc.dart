@@ -21,8 +21,29 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     on<_DashboardPapersError>(_onPapersError);
   }
 
-  DashboardLoaded _compute(List<Paper> papers) {
+  DashboardLoaded _compute(List<Paper> papers, String userId) {
     final now = DateTime.now();
+
+    // Assigned focus papers sorted by priority (High -> Medium -> Low), then deadline
+    final assigned = papers.where((p) =>
+        p.currentlyWith == userId ||
+        p.leadAuthorId == userId ||
+        p.authorIds.contains(userId)).toList()
+      ..sort((a, b) {
+        // Priority order: high (0) < medium (1) < low (2)
+        final pComp = a.priority.index.compareTo(b.priority.index);
+        if (pComp != 0) return pComp;
+
+        // If same priority, compare deadlines (nearest first)
+        if (a.deadline != null && b.deadline != null) {
+          return a.deadline!.compareTo(b.deadline!);
+        } else if (a.deadline != null) {
+          return -1;
+        } else if (b.deadline != null) {
+          return 1;
+        }
+        return b.updatedAt.compareTo(a.updatedAt);
+      });
 
     final upcoming = papers
         .where((p) =>
@@ -75,13 +96,17 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       recentPapers: recent.take(5).toList(),
       statusDistribution: distribution,
       papersNeedingAttention: needsAttention,
+      myAssignedPapers: assigned,
     );
   }
+
+  String _currentUserId = '';
 
   void _onLoadRequested(
     DashboardLoadRequested event,
     Emitter<DashboardState> emit,
   ) {
+    _currentUserId = event.userId;
     emit(DashboardLoading());
     _papersSubscription?.cancel();
     _papersSubscription = _paperRepository.getPapers(event.userId).listen(
@@ -95,14 +120,14 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     Emitter<DashboardState> emit,
   ) {
     final papers = event.papers;
-    final key = Object.hashAll(papers.map((p) => p.updatedAt.millisecondsSinceEpoch));
+    final key = Object.hashAll([_currentUserId, ...papers.map((p) => p.updatedAt.millisecondsSinceEpoch)]);
     final cached = _lastCached;
     if (key == _lastCacheKey && cached is DashboardLoaded) {
       emit(cached);
       return;
     }
     _lastCacheKey = key;
-    final result = _compute(papers);
+    final result = _compute(papers, _currentUserId);
     _lastCached = result;
     emit(result);
   }

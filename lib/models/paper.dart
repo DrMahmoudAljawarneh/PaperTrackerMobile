@@ -96,6 +96,11 @@ class Paper extends Equatable {
   final String currentlyWith;
   final String notes;
   final List<SubmissionEntry> submissions;
+  final String overleafUrl;
+  final String pdfUrl;
+  final String nextStep;
+  final DateTime? turnDueDate;
+  final Map<String, bool> authorApprovals;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -114,6 +119,11 @@ class Paper extends Equatable {
     this.currentlyWith = '',
     this.notes = '',
     this.submissions = const [],
+    this.overleafUrl = '',
+    this.pdfUrl = '',
+    this.nextStep = '',
+    this.turnDueDate,
+    this.authorApprovals = const {},
     required this.createdAt,
     required this.updatedAt,
   });
@@ -133,6 +143,11 @@ class Paper extends Equatable {
     String? currentlyWith,
     String? notes,
     List<SubmissionEntry>? submissions,
+    String? overleafUrl,
+    String? pdfUrl,
+    String? nextStep,
+    DateTime? turnDueDate,
+    Map<String, bool>? authorApprovals,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -151,6 +166,11 @@ class Paper extends Equatable {
       currentlyWith: currentlyWith ?? this.currentlyWith,
       notes: notes ?? this.notes,
       submissions: submissions ?? this.submissions,
+      overleafUrl: overleafUrl ?? this.overleafUrl,
+      pdfUrl: pdfUrl ?? this.pdfUrl,
+      nextStep: nextStep ?? this.nextStep,
+      turnDueDate: turnDueDate ?? this.turnDueDate,
+      authorApprovals: authorApprovals ?? this.authorApprovals,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -171,6 +191,11 @@ class Paper extends Equatable {
       'currentlyWith': currentlyWith,
       'notes': notes,
       'submissions': submissions.map((s) => s.toMap()).toList(),
+      'overleafUrl': overleafUrl,
+      'pdfUrl': pdfUrl,
+      'nextStep': nextStep,
+      'turnDueDate': turnDueDate?.toIso8601String(),
+      'authorApprovals': authorApprovals,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -204,6 +229,13 @@ class Paper extends Equatable {
                   SubmissionEntry.fromMap(e as Map<String, dynamic>))
               .toList() ??
           [],
+      overleafUrl: map['overleafUrl'] ?? '',
+      pdfUrl: map['pdfUrl'] ?? '',
+      nextStep: map['nextStep'] ?? '',
+      turnDueDate: map['turnDueDate'] != null
+          ? DateTime.parse(map['turnDueDate'])
+          : null,
+      authorApprovals: Map<String, bool>.from(map['authorApprovals'] ?? {}),
       createdAt: map['createdAt'] != null
           ? DateTime.parse(map['createdAt'])
           : DateTime.now(),
@@ -229,6 +261,11 @@ class Paper extends Equatable {
         currentlyWith,
         notes,
         submissions,
+        overleafUrl,
+        pdfUrl,
+        nextStep,
+        turnDueDate,
+        authorApprovals,
         createdAt,
         updatedAt,
       ];

@@ -45,6 +45,7 @@ class PapersListScreen extends StatefulWidget {
 }
 
 class _PapersListScreenState extends State<PapersListScreen> {
+  bool _isKanbanView = false;
   PaperStatus? _selectedStatus;
   Set<PaperStatus>? _selectedStatusSet;
   PaperPriority? _selectedPriority;
@@ -290,12 +291,36 @@ class _PapersListScreenState extends State<PapersListScreen> {
           // Active filter badges (Priority, Sharing, Collaborators)
           _buildActiveFiltersBadges(),
 
-          // Sort option selection
+          // Sort option selection & View Toggle (List vs Kanban)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                // List vs Kanban Toggle
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment<bool>(
+                      value: false,
+                      icon: Icon(Icons.view_list_rounded, size: 16),
+                      label: Text('List', style: TextStyle(fontSize: 11)),
+                    ),
+                    ButtonSegment<bool>(
+                      value: true,
+                      icon: Icon(Icons.view_kanban_rounded, size: 16),
+                      label: Text('Kanban', style: TextStyle(fontSize: 11)),
+                    ),
+                  ],
+                  selected: {_isKanbanView},
+                  onSelectionChanged: (set) {
+                    HapticFeedback.selectionClick();
+                    setState(() => _isKanbanView = set.first);
+                  },
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+                const Spacer(),
                 PopupMenuButton<_SortOption>(
                   initialValue: _sortOption,
                   onSelected: (v) => setState(() => _sortOption = v),
@@ -430,21 +455,23 @@ class _PapersListScreenState extends State<PapersListScreen> {
                               )
                             : RefreshIndicator(
                                 onRefresh: () async => _loadPapers(),
-                                child: ListView.builder(
-                                  padding: const EdgeInsets.only(bottom: 80),
-                                  itemCount: filtered.length,
-                                  itemBuilder: (context, index) {
-                                    final paper = filtered[index];
-                                    return _AnimatedPaperCard(
-                                      index: index,
-                                      child: PaperCard(
-                                        paper: paper,
-                                        onTap: () => context
-                                            .push('/papers/${paper.id}'),
+                                child: _isKanbanView
+                                    ? _buildKanbanBoard(filtered)
+                                    : ListView.builder(
+                                        padding: const EdgeInsets.only(bottom: 80),
+                                        itemCount: filtered.length,
+                                        itemBuilder: (context, index) {
+                                          final paper = filtered[index];
+                                          return _AnimatedPaperCard(
+                                            index: index,
+                                            child: PaperCard(
+                                              paper: paper,
+                                              onTap: () => context
+                                                  .push('/papers/${paper.id}'),
+                                            ),
+                                          );
+                                        },
                                       ),
-                                    );
-                                  },
-                                ),
                               ),
                       ),
                     ],
@@ -846,6 +873,102 @@ class _PapersListScreenState extends State<PapersListScreen> {
         });
         setState(() {});
       },
+    );
+  }
+
+  Widget _buildKanbanBoard(List<Paper> papers) {
+    // Group papers by key status groups
+    final kanbanColumns = <String, List<PaperStatus>>{
+      '💡 Ideas & Drafting': [PaperStatus.idea, PaperStatus.drafting],
+      '✍️ Writing & Review': [PaperStatus.writing, PaperStatus.internalReview],
+      '📤 Submitted': [PaperStatus.submitted, PaperStatus.underReview],
+      '📝 Revisions': [PaperStatus.revision],
+      '🏆 Published': [PaperStatus.published, PaperStatus.accepted],
+    };
+
+    return ListView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      children: kanbanColumns.entries.map((col) {
+        final title = col.key;
+        final statuses = col.value;
+        final colPapers = papers.where((p) => statuses.contains(p.status)).toList();
+
+        return Container(
+          width: 280,
+          margin: const EdgeInsets.only(right: 14),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Column Header
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${colPapers.length}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+
+              // Paper cards in column
+              Expanded(
+                child: colPapers.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No papers in stage',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).textTheme.bodySmall?.color,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(10),
+                        itemCount: colPapers.length,
+                        itemBuilder: (context, idx) {
+                          final paper = colPapers[idx];
+                          return PaperCard(
+                            paper: paper,
+                            onTap: () => context.push('/papers/${paper.id}'),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }

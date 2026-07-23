@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:paper_tracker/config/theme.dart';
 import 'package:paper_tracker/models/paper.dart';
+import 'package:paper_tracker/widgets/author_avatar_stack.dart';
 import 'package:paper_tracker/widgets/status_badge.dart';
 
 class PaperCard extends StatelessWidget {
@@ -145,18 +146,10 @@ class PaperCard extends StatelessWidget {
                     ],
                   ],
                   const Spacer(),
-                  Icon(
-                    Icons.people_outline,
-                    size: 14,
-                    color: Theme.of(context).textTheme.bodySmall?.color,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${paper.authorIds.length}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).textTheme.bodySmall?.color,
-                    ),
+                  AuthorAvatarStack(
+                    authors: paper.authors.isNotEmpty ? paper.authors : paper.authorIds,
+                    activeTurnAuthor: paper.currentlyWith,
+                    avatarSize: 24,
                   ),
                 ],
               ),

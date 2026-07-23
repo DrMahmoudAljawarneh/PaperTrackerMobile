@@ -21,6 +21,7 @@ class DashboardLoaded extends DashboardState {
   final List<Paper> recentPapers;
   final Map<PaperStatus, int> statusDistribution;
   final List<Paper> papersNeedingAttention;
+  final List<Paper> myAssignedPapers;
 
   const DashboardLoaded({
     required this.totalPapers,
@@ -31,6 +32,7 @@ class DashboardLoaded extends DashboardState {
     required this.recentPapers,
     this.statusDistribution = const {},
     this.papersNeedingAttention = const [],
+    this.myAssignedPapers = const [],
   });
 
   @override
@@ -43,6 +45,7 @@ class DashboardLoaded extends DashboardState {
         recentPapers,
         statusDistribution,
         papersNeedingAttention,
+        myAssignedPapers,
       ];
 }
 

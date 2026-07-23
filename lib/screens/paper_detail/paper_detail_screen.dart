@@ -12,9 +12,10 @@ import 'package:paper_tracker/models/user_model.dart';
 import 'package:paper_tracker/blocs/auth/auth_bloc.dart';
 import 'package:paper_tracker/blocs/auth/auth_state.dart';
 import 'package:paper_tracker/repositories/auth_repository.dart';
-import 'package:paper_tracker/screens/paper_detail/tasks_tab.dart';
 import 'package:paper_tracker/screens/paper_detail/comments_tab.dart';
 import 'package:paper_tracker/screens/paper_detail/history_tab.dart';
+import 'package:paper_tracker/screens/paper_detail/revisions_tab.dart';
+import 'package:paper_tracker/screens/paper_detail/tasks_tab.dart';
 import 'package:paper_tracker/widgets/deadline_countdown.dart';
 import 'package:paper_tracker/widgets/status_badge.dart';
 
@@ -34,7 +35,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -122,8 +123,10 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
                 ),
                 child: TabBar(
                   controller: _tabController,
+                  isScrollable: true,
                   tabs: const [
                     Tab(text: 'Overview'),
+                    Tab(text: 'Revisions'),
                     Tab(text: 'Tasks'),
                     Tab(text: 'Comments'),
                     Tab(text: 'History'),
@@ -137,6 +140,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
                   controller: _tabController,
                   children: [
                     _buildOverviewTab(paper),
+                    RevisionsTab(paperId: widget.paperId),
                     TasksTab(paperId: widget.paperId),
                     CommentsTab(paperId: widget.paperId),
                     HistoryTab(paperId: widget.paperId),
@@ -245,7 +249,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
             DeadlineCountdown(deadline: paper.deadline!),
           ],
 
-          // Currently With
+          // Currently With & Turn Due Date
           if (paper.currentlyWith.isNotEmpty) ...[
             const SizedBox(height: 8),
             Row(
@@ -255,7 +259,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Currently with: ${paper.currentlyWith}',
+                    'Currently with: ${paper.currentlyWith}${paper.turnDueDate != null ? ' (Due: ${DateFormat('MMM d').format(paper.turnDueDate!)})' : ''}',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.secondary,
                       fontSize: 14,
@@ -266,6 +270,60 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
               ],
             ),
           ],
+
+          // Next Action Milestone
+          if (paper.nextStep.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.accentColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.accentColor.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.flag_rounded, size: 16, color: AppTheme.accentColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Next Action: ${paper.nextStep}',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.accentColor),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Overleaf & PDF Action Row
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    // Open Overleaf Link or show dialog to set link
+                    if (paper.overleafUrl.isNotEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Opening Overleaf project: ${paper.overleafUrl}')),
+                      );
+                    } else {
+                      _showEditOverleafDialog(paper);
+                    }
+                  },
+                  icon: const Icon(Icons.menu_book_rounded, size: 18),
+                  label: Text(paper.overleafUrl.isNotEmpty ? 'Open in Overleaf' : 'Link Overleaf Project'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF008080), // Overleaf Teal Accent
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+            ],
+          ),
 
           // Status transition
           const SizedBox(height: 16),
@@ -349,6 +407,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
     final outcomeColor = switch (entry.outcome) {
       SubmissionOutcome.accepted => AppTheme.successColor,
       SubmissionOutcome.rejected => AppTheme.errorColor,
+      SubmissionOutcome.revision => const Color(0xFFFF7043),
       SubmissionOutcome.underReview => AppTheme.warningColor,
       SubmissionOutcome.withdrawn => AppTheme.textMuted,
       SubmissionOutcome.other => AppTheme.primaryColor,
@@ -356,6 +415,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
     final outcomeIcon = switch (entry.outcome) {
       SubmissionOutcome.accepted => Icons.check_circle,
       SubmissionOutcome.rejected => Icons.cancel,
+      SubmissionOutcome.revision => Icons.edit_note,
       SubmissionOutcome.underReview => Icons.schedule,
       SubmissionOutcome.withdrawn => Icons.remove_circle_outline,
       SubmissionOutcome.other => Icons.help_outline,
@@ -383,9 +443,17 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${DateFormat('MMM d, yyyy').format(entry.submissionDate)}  •  ${entry.outcome.name}',
+                  '${DateFormat('MMM d, yyyy').format(entry.submissionDate)}  •  ${entry.outcome.name.toUpperCase()}',
                   style: TextStyle(fontSize: 12, color: outcomeColor),
                 ),
+                if (entry.reviewScores.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      '⭐ Scores: ${entry.reviewScores}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                    ),
+                  ),
                 if (entry.notes != null && entry.notes!.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -404,6 +472,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
 
   Future<void> _showAddSubmissionDialog(Paper paper) async {
     final venueController = TextEditingController();
+    final scoresController = TextEditingController();
     DateTime selectedDate = DateTime.now();
     SubmissionOutcome selectedOutcome = SubmissionOutcome.underReview;
     final notesController = TextEditingController();
@@ -475,13 +544,24 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
                       labelText: 'Outcome',
                       border: OutlineInputBorder(),
                     ),
-                    items: SubmissionOutcome.values.map((o) => DropdownMenuItem(
-                      value: o,
-                      child: Text(o.name),
-                    )).toList(),
-                    onChanged: (v) {
-                      if (v != null) setSheetState(() => selectedOutcome = v);
+                    items: SubmissionOutcome.values.map((o) {
+                      return DropdownMenuItem(
+                        value: o,
+                        child: Text(o.name.toUpperCase()),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) setSheetState(() => selectedOutcome = val);
                     },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: scoresController,
+                    decoration: const InputDecoration(
+                      labelText: 'Review Scores (Optional)',
+                      hintText: 'e.g. 7/10, 6/10, Accept',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -518,30 +598,32 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
       },
     );
 
-    venueController.dispose();
-    notesController.dispose();
-
-    if (result != true) return;
-
-    final newSubmission = SubmissionEntry(
-      venueName: venueController.text.trim(),
-      submissionDate: selectedDate,
-      outcome: selectedOutcome,
-      notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
-    );
-
-    final authState = context.read<AuthBloc>().state;
-    if (authState is AuthAuthenticated) {
-      final updated = paper.copyWith(
-        submissions: [...paper.submissions, newSubmission],
-        updatedAt: DateTime.now(),
+    if (result == true) {
+      final newSubmission = SubmissionEntry(
+        venueName: venueController.text.trim(),
+        submissionDate: selectedDate,
+        outcome: selectedOutcome,
+        reviewScores: scoresController.text.trim(),
+        notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
       );
-      context.read<PaperBloc>().add(PaperUpdateRequested(
-        updated,
-        currentUserId: authState.user.uid,
-        currentUserName: authState.user.displayName,
-      ));
+
+      final authState = context.read<AuthBloc>().state;
+      if (authState is AuthAuthenticated) {
+        final updated = paper.copyWith(
+          submissions: [...paper.submissions, newSubmission],
+          updatedAt: DateTime.now(),
+        );
+        context.read<PaperBloc>().add(PaperUpdateRequested(
+          updated,
+          currentUserId: authState.user.uid,
+          currentUserName: authState.user.displayName,
+        ));
+      }
     }
+
+    venueController.dispose();
+    scoresController.dispose();
+    notesController.dispose();
   }
 
   Widget _buildOverviewTab(Paper paper) {
@@ -560,6 +642,10 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
             label: const Text('Add Submission'),
           ),
         ),
+        // Pre-Submission Co-Author Sign-off Checklist
+        _buildSectionTitle('Pre-Submission Co-Author Sign-Off'),
+        const SizedBox(height: 8),
+        _buildSignoffChecklist(paper),
         const SizedBox(height: 24),
 
         // Private Notes
@@ -816,6 +902,99 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
               .toList(),
         );
       },
+    );
+  }
+
+  Widget _buildSignoffChecklist(Paper paper) {
+    final authors = paper.authors.isNotEmpty ? paper.authors : paper.authorIds;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        children: authors.map((author) {
+          final isApproved = paper.authorApprovals[author] ?? false;
+
+          return CheckboxListTile(
+            title: Text(
+              author,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: isApproved ? FontWeight.bold : FontWeight.normal,
+                color: isApproved ? AppTheme.successColor : Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            subtitle: Text(
+              isApproved ? 'Approved final Overleaf draft' : 'Pending review',
+              style: TextStyle(fontSize: 11, color: isApproved ? AppTheme.successColor : AppTheme.warningColor),
+            ),
+            value: isApproved,
+            activeColor: AppTheme.successColor,
+            dense: true,
+            onChanged: (val) {
+              final newApprovals = Map<String, bool>.from(paper.authorApprovals);
+              newApprovals[author] = val ?? false;
+
+              final authState = context.read<AuthBloc>().state;
+              if (authState is AuthAuthenticated) {
+                context.read<PaperBloc>().add(PaperUpdateRequested(
+                  paper.copyWith(
+                    authorApprovals: newApprovals,
+                    updatedAt: DateTime.now(),
+                  ),
+                  currentUserId: authState.user.uid,
+                  currentUserName: authState.user.displayName,
+                ));
+              }
+            },
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  void _showEditOverleafDialog(Paper paper) {
+    final urlController = TextEditingController(text: paper.overleafUrl);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Link Overleaf Project'),
+        content: TextField(
+          controller: urlController,
+          decoration: const InputDecoration(
+            labelText: 'Overleaf Project URL',
+            hintText: 'https://www.overleaf.com/project/...',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final authState = context.read<AuthBloc>().state;
+              if (authState is AuthAuthenticated) {
+                context.read<PaperBloc>().add(PaperUpdateRequested(
+                  paper.copyWith(
+                    overleafUrl: urlController.text.trim(),
+                    updatedAt: DateTime.now(),
+                  ),
+                  currentUserId: authState.user.uid,
+                  currentUserName: authState.user.displayName,
+                ));
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('Save Link'),
+          ),
+        ],
+      ),
     );
   }
 }

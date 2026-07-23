@@ -122,6 +122,21 @@ class HistoryTab extends StatelessWidget {
                         color: Theme.of(context).textTheme.bodySmall?.color,
                       ),
                     ),
+                  if (entry.note.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.5)),
+                      ),
+                      child: Text(
+                        '📝 Handover Note: ${entry.note}',
+                        style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

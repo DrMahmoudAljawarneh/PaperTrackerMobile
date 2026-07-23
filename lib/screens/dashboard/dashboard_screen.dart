@@ -7,8 +7,11 @@ import 'package:paper_tracker/blocs/auth/auth_state.dart';
 import 'package:paper_tracker/blocs/dashboard/dashboard_bloc.dart';
 import 'package:paper_tracker/blocs/dashboard/dashboard_event.dart';
 import 'package:paper_tracker/blocs/dashboard/dashboard_state.dart';
+import 'package:paper_tracker/blocs/paper/paper_bloc.dart';
+import 'package:paper_tracker/blocs/paper/paper_event.dart';
 import 'package:paper_tracker/config/theme.dart';
 import 'package:paper_tracker/models/paper.dart';
+import 'package:paper_tracker/widgets/author_avatar_stack.dart';
 import 'package:paper_tracker/widgets/deadline_countdown.dart';
 import 'package:paper_tracker/widgets/empty_state.dart';
 import 'package:paper_tracker/widgets/status_badge.dart';
@@ -136,6 +139,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // Stats Cards with gradient
           _buildStatsGrid(state),
           const SizedBox(height: 24),
+
+          // My Assigned Focus Spotlight Section
+          if (state.myAssignedPapers.isNotEmpty) ...[
+            _buildSectionHeader('My Assigned Focus', Icons.stars_rounded),
+            const SizedBox(height: 12),
+            _buildAssignedFocusSection(state.myAssignedPapers),
+            const SizedBox(height: 24),
+          ],
 
           // Status Distribution Bar
           if (state.statusDistribution.isNotEmpty) ...[
@@ -342,6 +353,192 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAssignedFocusSection(List<Paper> papers) {
+    return Column(
+      children: papers.map((paper) {
+        Color priorityColor;
+        switch (paper.priority) {
+          case PaperPriority.high:
+            priorityColor = AppTheme.errorColor;
+            break;
+          case PaperPriority.medium:
+            priorityColor = AppTheme.warningColor;
+            break;
+          case PaperPriority.low:
+            priorityColor = AppTheme.successColor;
+            break;
+        }
+
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: priorityColor.withValues(alpha: 0.3), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: priorityColor.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: priorityColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.flag_rounded, size: 12, color: priorityColor),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${paper.priority.label} Priority',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: priorityColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+                  StatusBadge(status: paper.status),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                paper.title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (paper.currentlyWith.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.person_pin_rounded, size: 14, color: AppTheme.accentColor),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'Assigned Focus: ${paper.currentlyWith}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.accentColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    AuthorAvatarStack(
+                      authors: paper.authors.isNotEmpty ? paper.authors : paper.authorIds,
+                      activeTurnAuthor: paper.currentlyWith,
+                      avatarSize: 26,
+                    ),
+                  ],
+                ),
+              ],
+              if (paper.nextStep.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.accentColor.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.flag_rounded, size: 14, color: AppTheme.accentColor),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Next Action: ${paper.nextStep}',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.accentColor),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (paper.turnDueDate != null) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.hourglass_bottom_rounded, size: 14, color: AppTheme.warningColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Turn Due: ${DateFormat('MMM d, yyyy').format(paper.turnDueDate!)}',
+                      style: const TextStyle(fontSize: 12, color: AppTheme.warningColor, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ],
+              if (paper.deadline != null) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.alarm_rounded, size: 14, color: AppTheme.textMuted),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Deadline: ${DateFormat('MMM d, yyyy').format(paper.deadline!)}',
+                      style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => context.push('/papers/${paper.id}'),
+                      icon: const Icon(Icons.center_focus_strong_rounded, size: 18),
+                      label: const Text('Focus Mode'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => _showDelegateTurnDialog(context, paper),
+                    icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                    label: const Text('Pass Turn'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -678,5 +875,121 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   String _timeAgo(DateTime dateTime) => timeAgo(dateTime);
+
+  void _showDelegateTurnDialog(BuildContext context, Paper paper) {
+    final authors = paper.authors.isNotEmpty ? paper.authors : paper.authorIds;
+    String selectedAuthor = authors.isNotEmpty ? authors.first : '';
+    final nextStepController = TextEditingController(text: paper.nextStep);
+    DateTime? selectedTurnDueDate = paper.turnDueDate;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  const Icon(Icons.swap_horiz_rounded, color: AppTheme.primaryColor),
+                  const SizedBox(width: 8),
+                  const Text('Pass Paper Turn'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Transfer active writing/review turn for "${paper.title}":',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedAuthor.isNotEmpty ? selectedAuthor : null,
+                    decoration: InputDecoration(
+                      labelText: 'Assigned Co-author',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    items: authors.map((author) {
+                      return DropdownMenuItem(
+                        value: author,
+                        child: Text(author),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) setDialogState(() => selectedAuthor = val);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: nextStepController,
+                    decoration: InputDecoration(
+                      labelText: 'Next Action / Milestone',
+                      hintText: 'e.g. Finish Section 4.2 tables in Overleaf',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: selectedTurnDueDate ?? DateTime.now().add(const Duration(days: 3)),
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (date != null) setDialogState(() => selectedTurnDueDate = date);
+                    },
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: 'Turn Target Due Date (Optional)',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        suffixIcon: const Icon(Icons.calendar_today),
+                      ),
+                      child: Text(selectedTurnDueDate != null
+                          ? DateFormat('MMM d, yyyy').format(selectedTurnDueDate!)
+                          : 'No target date'),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext);
+                    final authState = context.read<AuthBloc>().state;
+                    if (authState is AuthAuthenticated) {
+                      final updatedPaper = paper.copyWith(
+                        currentlyWith: selectedAuthor,
+                        nextStep: nextStepController.text.trim(),
+                        turnDueDate: selectedTurnDueDate,
+                        updatedAt: DateTime.now(),
+                      );
+                      context.read<PaperBloc>().add(PaperUpdateRequested(
+                        updatedPaper,
+                        currentUserId: authState.user.uid,
+                        currentUserName: authState.user.displayName,
+                      ));
+                    }
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Paper turn passed to $selectedAuthor 🎉'),
+                        backgroundColor: AppTheme.successColor,
+                      ),
+                    );
+                  },
+                  child: const Text('Transfer Turn'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 }
 
