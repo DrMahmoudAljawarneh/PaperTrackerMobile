@@ -75,6 +75,25 @@ class PaperStatusChanged extends PaperEvent {
   List<Object?> get props => [paperId, newStatus, currentUserId, currentUserName, paperTitle];
 }
 
+class PaperFocusToggled extends PaperEvent {
+  final String paperId;
+  final bool isFocused;
+  final String currentUserId;
+  final String currentUserName;
+  final String paperTitle;
+
+  const PaperFocusToggled({
+    required this.paperId,
+    required this.isFocused,
+    required this.currentUserId,
+    required this.currentUserName,
+    required this.paperTitle,
+  });
+
+  @override
+  List<Object?> get props => [paperId, isFocused, currentUserId, currentUserName, paperTitle];
+}
+
 class PapersUpdated extends PaperEvent {
   final List<Paper> papers;
 

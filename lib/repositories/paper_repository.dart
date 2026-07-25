@@ -245,5 +245,41 @@ class PaperRepository {
       );
     }
   }
+
+  /// Toggle or set Focus Mode status globally for a paper.
+  Future<void> toggleFocusStatus(
+    String paperId,
+    bool isFocused, {
+    String? currentUserId,
+    String? currentUserName,
+    String? paperTitle,
+  }) async {
+    final now = DateTime.now();
+    await _papersRef.child(paperId).update({
+      'isFocused': isFocused,
+      'focusedAt': isFocused ? now.toIso8601String() : null,
+      'focusedByUserId': isFocused ? (currentUserId ?? '') : '',
+      'updatedAt': now.toIso8601String(),
+    });
+
+    if (isFocused && _notificationRepository != null && currentUserId != null) {
+      final paperSnapshot = await _papersRef.child(paperId).get();
+      if (paperSnapshot.exists) {
+        final data = safeCastMap(paperSnapshot.value);
+        final authorIds = safeCastStringList(data['authorIds']);
+        final title = paperTitle ?? (data['title'] as String? ?? 'Paper');
+
+        await _notificationRepository.pushNotificationToMany(
+          recipientIds: authorIds,
+          senderId: currentUserId,
+          senderName: currentUserName ?? '',
+          title: '🎯 Paper Set to Focus Mode',
+          message: '"$title" has been assigned to Team Focus Mode by ${currentUserName ?? 'a teammate'}',
+          type: NotificationType.paperModified,
+          relatedPaperId: paperId,
+        );
+      }
+    }
+  }
 }
 

@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'dart:convert';
+import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:paper_tracker/blocs/paper/paper_event.dart';
 import 'package:paper_tracker/blocs/paper/paper_state.dart';
 import 'package:paper_tracker/models/paper.dart';
@@ -7,7 +8,7 @@ import 'package:paper_tracker/models/status_history_entry.dart';
 import 'package:paper_tracker/repositories/paper_repository.dart';
 import 'package:paper_tracker/repositories/status_history_repository.dart';
 
-class PaperBloc extends Bloc<PaperEvent, PaperState> {
+class PaperBloc extends HydratedBloc<PaperEvent, PaperState> {
   final PaperRepository _paperRepository;
   final StatusHistoryRepository _statusHistoryRepository;
   StreamSubscription<List<Paper>>? _papersSubscription;
@@ -25,7 +26,25 @@ class PaperBloc extends Bloc<PaperEvent, PaperState> {
     on<PaperUpdateRequested>(_onUpdateRequested);
     on<PaperDeleteRequested>(_onDeleteRequested);
     on<PaperStatusChanged>(_onStatusChanged);
+    on<PaperFocusToggled>(_onFocusToggled);
     on<_PapersLoadError>(_onPapersLoadError);
+  }
+
+  Future<void> _onFocusToggled(
+    PaperFocusToggled event,
+    Emitter<PaperState> emit,
+  ) async {
+    try {
+      await _paperRepository.toggleFocusStatus(
+        event.paperId,
+        event.isFocused,
+        currentUserId: event.currentUserId,
+        currentUserName: event.currentUserName,
+        paperTitle: event.paperTitle,
+      );
+    } catch (e) {
+      emit(PaperError(e.toString()));
+    }
   }
 
   Future<void> _onLoadRequested(
@@ -144,6 +163,32 @@ class PaperBloc extends Bloc<PaperEvent, PaperState> {
   Future<void> close() {
     _papersSubscription?.cancel();
     return super.close();
+  }
+
+  @override
+  PaperState? fromJson(Map<String, dynamic> json) {
+    try {
+      if (json['type'] == 'PapersLoaded') {
+        final data = json['data'] as List;
+        return PapersLoaded(
+          data.map((p) => Paper.fromMap(p['id'], p as Map<String, dynamic>)).toList(),
+        );
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Map<String, dynamic>? toJson(PaperState state) {
+    if (state is PapersLoaded) {
+      return {
+        'type': 'PapersLoaded',
+        'data': state.papers.map((p) => p.toMap()..['id'] = p.id).toList(),
+      };
+    }
+    return null;
   }
 }
 

@@ -57,6 +57,36 @@ class PaperCard extends StatelessWidget {
                   _buildPriorityIndicator(),
                 ],
               ),
+              if (paper.isFocused) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.5)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.stars_rounded, size: 12, color: Colors.amber),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          paper.currentlyWith.isNotEmpty ? 'FOCUS: ${paper.currentlyWith}' : 'FOCUS',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber,
+                            letterSpacing: 0.5,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
 
               // Title

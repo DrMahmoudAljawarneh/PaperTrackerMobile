@@ -1,5 +1,5 @@
 {
-    "version":  "2.1.1",
-    "apkUrl":  "https://github.com/DrMahmoudAljawarneh/PaperTrackerMobile/releases/download/v2.1.1/app-release.apk",
+    "version":  "2.3.0",
+    "apkUrl":  "https://github.com/DrMahmoudAljawarneh/PaperTrackerMobile/releases/download/v2.3.0/app-release.apk",
     "releaseNotes":  "Massive UI overhaul! Redesigned the Academic Profile with a publications chart and glassmorphism styling. Overhauled the Papers page with an advanced filter bottom sheet, status tab headers, and active filter badges. Added automated Firebase cloud backups for ORCID profiles and periodic new paper notifications."
 }

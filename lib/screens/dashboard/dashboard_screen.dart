@@ -39,9 +39,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _loadDashboard() {
     final authState = context.read<AuthBloc>().state;
     if (authState is AuthAuthenticated) {
+      final user = authState.user;
+      final userName = user.displayName?.isNotEmpty == true
+          ? user.displayName!
+          : (user.email?.split('@').first ?? '');
       context
           .read<DashboardBloc>()
-          .add(DashboardLoadRequested(authState.user.uid));
+          .add(DashboardLoadRequested(user.uid, userName));
     }
   }
 
@@ -436,7 +440,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        'Assigned Focus: ${paper.currentlyWith}',
+                        'Currently with: ${paper.currentlyWith}',
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppTheme.accentColor,
@@ -508,9 +512,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () => context.push('/papers/${paper.id}'),
+                      onPressed: () => context.push('/papers/focus/${paper.id}'),
                       icon: const Icon(Icons.center_focus_strong_rounded, size: 18),
-                      label: const Text('Focus Mode'),
+                      label: const Text('Focus Workspace'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primaryColor,
                         foregroundColor: Colors.white,

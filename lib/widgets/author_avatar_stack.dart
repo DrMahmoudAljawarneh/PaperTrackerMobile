@@ -33,8 +33,9 @@ class AuthorAvatarStack extends StatelessWidget {
             final isActiveTurn = activeTurnAuthor.isNotEmpty &&
                 name.toLowerCase().contains(activeTurnAuthor.toLowerCase());
 
-            final initials = name.isNotEmpty
-                ? name.trim().split(' ').map((e) => e[0]).take(2).join().toUpperCase()
+            final trimmedName = name.trim();
+            final initials = trimmedName.isNotEmpty
+                ? trimmedName.split(' ').where((e) => e.isNotEmpty).map((e) => e[0]).take(2).join().toUpperCase()
                 : '?';
 
             // Generate consistent avatar color based on name string

@@ -11,6 +11,7 @@ import 'package:paper_tracker/screens/tasks/global_tasks_screen.dart';
 import 'package:paper_tracker/screens/papers/papers_list_screen.dart';
 import 'package:paper_tracker/screens/papers/add_edit_paper_screen.dart';
 import 'package:paper_tracker/screens/paper_detail/paper_detail_screen.dart';
+import 'package:paper_tracker/screens/focus/focus_mode_screen.dart';
 import 'package:paper_tracker/screens/chat/chat_list_screen.dart';
 import 'package:paper_tracker/screens/chat/chat_detail_screen.dart';
 import 'package:paper_tracker/screens/notifications/notifications_screen.dart';
@@ -125,6 +126,14 @@ GoRouter createRouter(AuthBloc authBloc) {
         builder: (context, state) {
           final paperId = state.pathParameters['id']!;
           return PaperDetailScreen(paperId: paperId);
+        },
+      ),
+      GoRoute(
+        path: '/papers/focus/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final paperId = state.pathParameters['id']!;
+          return FocusModeScreen(paperId: paperId);
         },
       ),
       GoRoute(

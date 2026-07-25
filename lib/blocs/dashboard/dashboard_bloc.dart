@@ -1,11 +1,12 @@
 import 'dart:async';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:paper_tracker/blocs/dashboard/dashboard_event.dart';
 import 'package:paper_tracker/blocs/dashboard/dashboard_state.dart';
 import 'package:paper_tracker/models/paper.dart';
 import 'package:paper_tracker/repositories/paper_repository.dart';
+import 'dart:convert';
 
-class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
+class DashboardBloc extends HydratedBloc<DashboardEvent, DashboardState> {
   final PaperRepository _paperRepository;
   StreamSubscription<List<Paper>>? _papersSubscription;
 
@@ -21,15 +22,25 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     on<_DashboardPapersError>(_onPapersError);
   }
 
-  DashboardLoaded _compute(List<Paper> papers, String userId) {
+  DashboardLoaded _compute(List<Paper> papers, String userId, String userName) {
     final now = DateTime.now();
 
-    // Assigned focus papers sorted by priority (High -> Medium -> Low), then deadline
-    final assigned = papers.where((p) =>
-        p.currentlyWith == userId ||
-        p.leadAuthorId == userId ||
-        p.authorIds.contains(userId)).toList()
+    // Assigned focus papers: ONLY Team Focus Active OR Currently Assigned To You
+    final assignedRaw = papers.where((p) =>
+        p.isFocused ||
+        (p.currentlyWith.isNotEmpty && p.currentlyWith == userName)).toList()
       ..sort((a, b) {
+        // Manually focused papers take top priority
+        if (a.isFocused != b.isFocused) {
+          return a.isFocused ? -1 : 1;
+        }
+
+        if (a.isFocused && b.isFocused) {
+          if (a.focusedAt != null && b.focusedAt != null) {
+            return b.focusedAt!.compareTo(a.focusedAt!);
+          }
+        }
+
         // Priority order: high (0) < medium (1) < low (2)
         final pComp = a.priority.index.compareTo(b.priority.index);
         if (pComp != 0) return pComp;
@@ -44,6 +55,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         }
         return b.updatedAt.compareTo(a.updatedAt);
       });
+
+    final assigned = assignedRaw.take(4).toList();
 
     final upcoming = papers
         .where((p) =>
@@ -101,12 +114,14 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   }
 
   String _currentUserId = '';
+  String _currentUserName = '';
 
   void _onLoadRequested(
     DashboardLoadRequested event,
     Emitter<DashboardState> emit,
   ) {
     _currentUserId = event.userId;
+    _currentUserName = event.userName;
     emit(DashboardLoading());
     _papersSubscription?.cancel();
     _papersSubscription = _paperRepository.getPapers(event.userId).listen(
@@ -127,9 +142,10 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       return;
     }
     _lastCacheKey = key;
-    final result = _compute(papers, _currentUserId);
-    _lastCached = result;
-    emit(result);
+    final newState = _compute(papers, _currentUserId, _currentUserName);
+    _lastCached = newState;
+    _lastCacheKey = key;
+    emit(newState);
   }
 
   void _onPapersError(
@@ -143,6 +159,70 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   Future<void> close() {
     _papersSubscription?.cancel();
     return super.close();
+  }
+
+  @override
+  DashboardState? fromJson(Map<String, dynamic> json) {
+    try {
+      if (json['type'] == 'DashboardLoaded') {
+        final data = json['data'] as Map<String, dynamic>;
+        
+        final distMap = (data['statusDistribution'] as Map<String, dynamic>).map(
+          (k, v) => MapEntry(
+            PaperStatus.values.firstWhere((e) => e.name == k, orElse: () => PaperStatus.idea),
+            v as int,
+          )
+        );
+
+        return DashboardLoaded(
+          totalPapers: data['totalPapers'] as int,
+          inProgressPapers: data['inProgressPapers'] as int,
+          submittedPapers: data['submittedPapers'] as int,
+          publishedPapers: data['publishedPapers'] as int,
+          upcomingDeadlines: (data['upcomingDeadlines'] as List)
+              .map((p) => Paper.fromMap(p['id'], p as Map<String, dynamic>))
+              .toList(),
+          recentPapers: (data['recentPapers'] as List)
+              .map((p) => Paper.fromMap(p['id'], p as Map<String, dynamic>))
+              .toList(),
+          statusDistribution: distMap,
+          papersNeedingAttention: (data['papersNeedingAttention'] as List)
+              .map((p) => Paper.fromMap(p['id'], p as Map<String, dynamic>))
+              .toList(),
+          myAssignedPapers: (data['myAssignedPapers'] as List)
+              .map((p) => Paper.fromMap(p['id'], p as Map<String, dynamic>))
+              .toList(),
+        );
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Map<String, dynamic>? toJson(DashboardState state) {
+    if (state is DashboardLoaded) {
+      final distMap = state.statusDistribution.map(
+        (k, v) => MapEntry(k.name, v),
+      );
+
+      return {
+        'type': 'DashboardLoaded',
+        'data': {
+          'totalPapers': state.totalPapers,
+          'inProgressPapers': state.inProgressPapers,
+          'submittedPapers': state.submittedPapers,
+          'publishedPapers': state.publishedPapers,
+          'upcomingDeadlines': state.upcomingDeadlines.map((p) => p.toMap()..['id'] = p.id).toList(),
+          'recentPapers': state.recentPapers.map((p) => p.toMap()..['id'] = p.id).toList(),
+          'statusDistribution': distMap,
+          'papersNeedingAttention': state.papersNeedingAttention.map((p) => p.toMap()..['id'] = p.id).toList(),
+          'myAssignedPapers': state.myAssignedPapers.map((p) => p.toMap()..['id'] = p.id).toList(),
+        }
+      };
+    }
+    return null;
   }
 }
 

@@ -7,11 +7,20 @@ import 'package:paper_tracker/services/notification_service.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
 import 'firebase_options.dart';
 
+import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:path_provider/path_provider.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    if (!e.toString().contains('duplicate-app')) {
+      rethrow;
+    }
+  }
 
   // Enable offline persistence for Firebase Realtime Database
   if (!kIsWeb) {
@@ -21,6 +30,13 @@ void main() async {
       debugPrint('Firebase Database persistence initialization failed: $e');
     }
   }
+
+  // Initialize HydratedBloc for offline UI caching
+  HydratedBloc.storage = await HydratedStorage.build(
+    storageDirectory: kIsWeb
+        ? HydratedStorageDirectory.web
+        : HydratedStorageDirectory((await getApplicationDocumentsDirectory()).path),
+  );
 
   // Run the app immediately – do NOT block on optional services
   runApp(const PaperTrackerApp());

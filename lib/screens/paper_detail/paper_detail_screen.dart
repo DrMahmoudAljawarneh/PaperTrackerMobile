@@ -9,9 +9,11 @@ import 'package:paper_tracker/config/theme.dart';
 import 'package:paper_tracker/models/paper.dart';
 import 'package:paper_tracker/models/submission_entry.dart';
 import 'package:paper_tracker/models/user_model.dart';
+import 'package:add_2_calendar/add_2_calendar.dart';
 import 'package:paper_tracker/blocs/auth/auth_bloc.dart';
 import 'package:paper_tracker/blocs/auth/auth_state.dart';
 import 'package:paper_tracker/repositories/auth_repository.dart';
+import 'package:paper_tracker/repositories/paper_repository.dart';
 import 'package:paper_tracker/screens/paper_detail/comments_tab.dart';
 import 'package:paper_tracker/screens/paper_detail/history_tab.dart';
 import 'package:paper_tracker/screens/paper_detail/revisions_tab.dart';
@@ -77,84 +79,109 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
     return BlocBuilder<PaperBloc, PaperState>(
       builder: (context, state) {
         final paper = state is PapersLoaded
-            ? state.papers.where((p) => p.id == widget.paperId).firstOrNull
+            ? state.papers.where((p) => p.id == widget.paperId.trim()).firstOrNull
             : null;
 
-        if (state is PaperInitial || (state is PaperLoading && paper == null)) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+        if (paper != null) {
+          return _buildScaffold(context, paper);
         }
 
-        if (paper == null) {
-          return Scaffold(
-            appBar: AppBar(),
-            body: const Center(child: Text('Paper not found')),
-          );
-        }
+        // Fallback to streaming the paper directly if not in Bloc's list yet
+        return StreamBuilder<Paper?>(
+          stream: context.read<PaperRepository>().streamPaper(widget.paperId.trim()),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting && state is PaperLoading) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+            
+            final fetchedPaper = snapshot.data;
+            if (fetchedPaper != null) {
+              return _buildScaffold(context, fetchedPaper);
+            }
 
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Paper Details'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.edit_outlined),
-                onPressed: () => context.push('/papers/edit/${paper.id}'),
-              ),
-              IconButton(
-                icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
-                onPressed: () => _confirmDeletePaper(context, paper.id),
-              ),
-            ],
-          ),
-          body: Column(
-            children: [
-              // Paper header
-              _buildHeader(paper),
-
-              // Tab bar
-              Container(
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
-                    ),
-                  ),
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  isScrollable: true,
-                  tabs: const [
-                    Tab(text: 'Overview'),
-                    Tab(text: 'Revisions'),
-                    Tab(text: 'Tasks'),
-                    Tab(text: 'Comments'),
-                    Tab(text: 'History'),
-                  ],
-                ),
-              ),
-
-              // Tab content
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildOverviewTab(paper),
-                    RevisionsTab(paperId: widget.paperId),
-                    TasksTab(paperId: widget.paperId),
-                    CommentsTab(paperId: widget.paperId),
-                    HistoryTab(paperId: widget.paperId),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            return Scaffold(
+              appBar: AppBar(),
+              body: const Center(child: Text('Paper not found')),
+            );
+          },
         );
       },
     );
   }
 
+  Widget _buildScaffold(BuildContext context, Paper paper) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Paper Details'),
+        actions: [
+          IconButton(
+            tooltip: 'Focus Workspace',
+            icon: const Icon(Icons.center_focus_strong_rounded, color: AppTheme.primaryColor),
+            onPressed: () => context.push('/papers/focus/${paper.id}'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () => context.push('/papers/edit/${paper.id}'),
+          ),
+          IconButton(
+            icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+            onPressed: () => _confirmDeletePaper(context, paper.id),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Paper header
+          _buildHeader(paper),
+
+          // Tab bar
+          Container(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+                ),
+              ),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabs: const [
+                Tab(text: 'Overview'),
+                Tab(text: 'Revisions'),
+                Tab(text: 'Tasks'),
+                Tab(text: 'Comments'),
+                Tab(text: 'History'),
+              ],
+            ),
+          ),
+
+          // Tab content
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildOverviewTab(paper),
+                RevisionsTab(paperId: paper.id),
+                TasksTab(paperId: paper.id),
+                CommentsTab(paperId: paper.id),
+                HistoryTab(paperId: paper.id),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHeader(Paper paper) {
+    final screenSize = MediaQuery.of(context).size;
+    final isSmallScreen = screenSize.height < 700;
+    final horizontalPadding = (screenSize.width * 0.04).clamp(12.0, 24.0);
+    final verticalPadding = isSmallScreen ? 8.0 : 12.0;
+
     return Hero(
       tag: 'paper-card-${paper.id}',
       flightShuttleBuilder: (
@@ -170,7 +197,10 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
         );
       },
       child: Container(
-        padding: const EdgeInsets.all(20),
+        constraints: BoxConstraints(
+          maxHeight: screenSize.height * 0.42,
+        ),
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           border: Border(
@@ -181,24 +211,33 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
         ),
         child: Material(
           color: Colors.transparent,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-          // Status + Priority row
-          Row(
-            children: [
-              StatusBadge(status: paper.status, large: true),
-              const Spacer(),
-              _buildPriorityChip(paper.priority),
-            ],
-          ),
-          const SizedBox(height: 14),
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Status + Priority row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Flexible(child: StatusBadge(status: paper.status, large: !isSmallScreen)),
+                    const SizedBox(width: 8),
+                    _buildPriorityChip(paper.priority),
+                  ],
+                ),
+                SizedBox(height: isSmallScreen ? 4 : 6),
 
-          // Title
-          Text(
-            paper.title,
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
+                // Title
+                Text(
+                  paper.title,
+                  style: (isSmallScreen
+                          ? Theme.of(context).textTheme.titleMedium
+                          : Theme.of(context).textTheme.titleLarge)
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
 
           // Venue
           if (paper.targetVenue.isNotEmpty) ...[
@@ -246,7 +285,27 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
           // Deadline
           if (paper.deadline != null) ...[
             const SizedBox(height: 10),
-            DeadlineCountdown(deadline: paper.deadline!),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: DeadlineCountdown(deadline: paper.deadline!)),
+                IconButton(
+                  icon: const Icon(Icons.edit_calendar_rounded, color: AppTheme.primaryColor),
+                  tooltip: 'Add to Calendar',
+                  onPressed: () {
+                    final Event event = Event(
+                      title: 'Deadline: ${paper.title}',
+                      description: 'Submission Deadline for paper.\nVenue: ${paper.targetVenue}',
+                      location: paper.targetVenue,
+                      startDate: paper.deadline!,
+                      endDate: paper.deadline!.add(const Duration(hours: 1)),
+                      allDay: true,
+                    );
+                    Add2Calendar.addEvent2Cal(event);
+                  },
+                ),
+              ],
+            ),
           ],
 
           // Currently With & Turn Due Date
@@ -273,9 +332,9 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
 
           // Next Action Milestone
           if (paper.nextStep.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: AppTheme.accentColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
@@ -297,7 +356,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
           ],
 
           // Overleaf & PDF Action Row
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -329,6 +388,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
           const SizedBox(height: 16),
           _buildStatusTransition(paper),
         ],
+      ),
       ),
     ),
   ),
@@ -908,14 +968,15 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
   Widget _buildSignoffChecklist(Paper paper) {
     final authors = paper.authors.isNotEmpty ? paper.authors : paper.authorIds;
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+    return Material(
+      color: Theme.of(context).cardColor,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.5)),
+        side: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.5)),
       ),
-      child: Column(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
         children: authors.map((author) {
           final isApproved = paper.authorApprovals[author] ?? false;
 
@@ -953,6 +1014,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
             },
           );
         }).toList(),
+      ),
       ),
     );
   }

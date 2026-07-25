@@ -101,6 +101,9 @@ class Paper extends Equatable {
   final String nextStep;
   final DateTime? turnDueDate;
   final Map<String, bool> authorApprovals;
+  final bool isFocused;
+  final DateTime? focusedAt;
+  final String focusedByUserId;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -124,6 +127,9 @@ class Paper extends Equatable {
     this.nextStep = '',
     this.turnDueDate,
     this.authorApprovals = const {},
+    this.isFocused = false,
+    this.focusedAt,
+    this.focusedByUserId = '',
     required this.createdAt,
     required this.updatedAt,
   });
@@ -148,6 +154,9 @@ class Paper extends Equatable {
     String? nextStep,
     DateTime? turnDueDate,
     Map<String, bool>? authorApprovals,
+    bool? isFocused,
+    DateTime? focusedAt,
+    String? focusedByUserId,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -171,6 +180,9 @@ class Paper extends Equatable {
       nextStep: nextStep ?? this.nextStep,
       turnDueDate: turnDueDate ?? this.turnDueDate,
       authorApprovals: authorApprovals ?? this.authorApprovals,
+      isFocused: isFocused ?? this.isFocused,
+      focusedAt: focusedAt ?? this.focusedAt,
+      focusedByUserId: focusedByUserId ?? this.focusedByUserId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -196,6 +208,9 @@ class Paper extends Equatable {
       'nextStep': nextStep,
       'turnDueDate': turnDueDate?.toIso8601String(),
       'authorApprovals': authorApprovals,
+      'isFocused': isFocused,
+      'focusedAt': focusedAt?.toIso8601String(),
+      'focusedByUserId': focusedByUserId,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -236,6 +251,11 @@ class Paper extends Equatable {
           ? DateTime.parse(map['turnDueDate'])
           : null,
       authorApprovals: Map<String, bool>.from(map['authorApprovals'] ?? {}),
+      isFocused: map['isFocused'] ?? false,
+      focusedAt: map['focusedAt'] != null
+          ? DateTime.parse(map['focusedAt'])
+          : null,
+      focusedByUserId: map['focusedByUserId'] ?? '',
       createdAt: map['createdAt'] != null
           ? DateTime.parse(map['createdAt'])
           : DateTime.now(),
@@ -266,6 +286,9 @@ class Paper extends Equatable {
         nextStep,
         turnDueDate,
         authorApprovals,
+        isFocused,
+        focusedAt,
+        focusedByUserId,
         createdAt,
         updatedAt,
       ];

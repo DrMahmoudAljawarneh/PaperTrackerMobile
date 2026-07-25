@@ -9,9 +9,10 @@ abstract class DashboardEvent extends Equatable {
 
 class DashboardLoadRequested extends DashboardEvent {
   final String userId;
+  final String userName;
 
-  const DashboardLoadRequested(this.userId);
+  const DashboardLoadRequested(this.userId, this.userName);
 
   @override
-  List<Object?> get props => [userId];
+  List<Object?> get props => [userId, userName];
 }
