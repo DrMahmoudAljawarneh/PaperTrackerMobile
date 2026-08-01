@@ -247,6 +247,7 @@ class OrcidAuthService {
 
   static Future<void> saveToken(OrcidToken token) async {
     await _secureStorage.write(key: _tokenKey, value: jsonEncode(token.toJson()));
+    await _saveLinkedIdentity(token.orcidId, name: token.name);
   }
 
   static Future<void> _clearToken() async {
@@ -254,43 +255,147 @@ class OrcidAuthService {
     _cachedToken = null;
   }
 
-  // --- Pending request persistence (used by the web OAuth redirect flow) ---
+  // --- Web implicit OAuth (client-only, no CORS) ---
+  //
+  // ORCID deliberately blocks CORS on its OAuth token endpoint
+  // (https://orcid.org/oauth/token), so a browser can never exchange an
+  // authorization code there. On web we therefore use ORCID's implicit flow
+  // (response_type=token), which is designed for single-page apps and returns
+  // the access token directly in the redirect URL fragment. Those tokens are
+  // short-lived with no refresh token, so the linked ORCID iD is also
+  // persisted separately (in plain SharedPreferences) and the cached profile
+  // remains viewable after the token lapses.
 
-  static const _pendingStateKey = 'orcid_pending_state';
-  static const _pendingVerifierKey = 'orcid_pending_verifier';
+  static const _linkedIdKey = 'orcid_linked_id';
+  static const _linkedNameKey = 'orcid_linked_name';
+  static const _webStateKey = 'orcid_web_state';
 
-  static Future<void> savePendingRequest(AuthorizationRequest request) async {
+  static Future<String?> getLinkedOrcidId() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_pendingStateKey, request.state);
-    await prefs.setString(_pendingVerifierKey, request.codeVerifier);
+    return prefs.getString(_linkedIdKey);
   }
 
-  static Future<AuthorizationRequest?> getPendingRequest() async {
+  static Future<String?> getLinkedName() async {
     final prefs = await SharedPreferences.getInstance();
-    final state = prefs.getString(_pendingStateKey);
-    final verifier = prefs.getString(_pendingVerifierKey);
-    if (state == null || verifier == null) return null;
-    return AuthorizationRequest(url: '', codeVerifier: verifier, state: state);
+    return prefs.getString(_linkedNameKey);
   }
 
-  static Future<void> clearPendingRequest() async {
+  static Future<void> _saveLinkedIdentity(
+    String orcidId, {
+    String? name,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_pendingStateKey);
-    await prefs.remove(_pendingVerifierKey);
+    await prefs.setString(_linkedIdKey, orcidId);
+    if (name != null) {
+      await prefs.setString(_linkedNameKey, name);
+    }
+  }
+
+  static Future<void> _saveWebState(String state) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_webStateKey, state);
+  }
+
+  static Future<String?> _takeWebState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final state = prefs.getString(_webStateKey);
+    await prefs.remove(_webStateKey);
+    return state;
+  }
+
+  static Future<String> buildWebAuthorizationUrl() async {
+    final state = generateCodeVerifier().substring(0, 16);
+    await _saveWebState(state);
+
+    final params = {
+      'response_type': 'token',
+      'client_id': OrcidConfig.clientId,
+      'redirect_uri': OrcidConfig.redirectUri,
+      'scope': OrcidConfig.scopes.join(' '),
+      'state': state,
+    };
+
+    return '${OrcidConfig.authorizationUrl}?${Uri(queryParameters: params).query}';
   }
 
   static Future<OrcidAuthResult> completeWebCallback(String redirectUrl) async {
-    final request = await getPendingRequest();
-    await clearPendingRequest();
-    if (request == null) {
-      return OrcidAuthResult(error: 'No pending authorization request found.');
+    final uri = Uri.parse(redirectUrl);
+    final params = uri.fragment.isNotEmpty
+        ? Uri.splitQueryString(uri.fragment)
+        : uri.queryParameters;
+
+    if (params['error'] != null) {
+      return OrcidAuthResult(
+        error: params['error_description'] ?? params['error']!,
+      );
     }
-    final result = await completeAuthorization(redirectUrl, request);
-    return result;
+
+    final expectedState = await _takeWebState();
+    final returnedState = params['state'];
+    if (expectedState != null &&
+        returnedState != null &&
+        returnedState != expectedState) {
+      return OrcidAuthResult(error: 'State mismatch. Please try again.');
+    }
+
+    final accessToken = params['access_token'];
+    if (accessToken == null || accessToken.isEmpty) {
+      return OrcidAuthResult(error: 'No access token returned by ORCID.');
+    }
+
+    final expiresIn = int.tryParse(params['expires_in'] ?? '') ?? 600;
+    final orcidId = params['orcid'] ?? _orcidIdFromIdToken(params['id_token']);
+    if (orcidId == null || orcidId.isEmpty) {
+      return OrcidAuthResult(error: 'Could not determine your ORCID iD.');
+    }
+
+    final token = OrcidToken(
+      accessToken: accessToken,
+      orcidId: orcidId,
+      name: params['name'] ?? _nameFromIdToken(params['id_token']),
+      expiresAt: DateTime.now().add(Duration(seconds: expiresIn)),
+    );
+
+    await saveToken(token);
+    _cachedToken = token;
+    return OrcidAuthResult(token: token);
+  }
+
+  static String? _orcidIdFromIdToken(String? idToken) {
+    if (idToken == null || idToken.isEmpty) return null;
+    try {
+      final sub = _decodeJwtPayload(idToken)['sub'] as String?;
+      return (sub != null && sub.startsWith('0000-')) ? sub : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static String? _nameFromIdToken(String? idToken) {
+    if (idToken == null || idToken.isEmpty) return null;
+    try {
+      return _decodeJwtPayload(idToken)['name'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Map<String, dynamic> _decodeJwtPayload(String idToken) {
+    final parts = idToken.split('.');
+    if (parts.length != 3) {
+      throw const FormatException('Invalid JWT');
+    }
+    final normalized = base64Url.normalize(parts[1]);
+    return jsonDecode(utf8.decode(base64Url.decode(normalized)))
+        as Map<String, dynamic>;
   }
 
   static Future<void> disconnect() async {
     await _clearToken();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_linkedIdKey);
+    await prefs.remove(_linkedNameKey);
+    await prefs.remove(_webStateKey);
   }
 
   static Future<OrcidAuthResult> refreshCurrentToken() async {

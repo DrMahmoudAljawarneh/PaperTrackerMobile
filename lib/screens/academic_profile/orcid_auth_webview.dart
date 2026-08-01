@@ -15,16 +15,19 @@ import 'package:paper_tracker/services/orcid_auth_service.dart';
 /// later via [OrcidCallbackScreen] after the redirect back, so this returns
 /// null immediately.
 Future<OrcidAuthResult?> startOrcidAuth(BuildContext context) async {
-  final authRequest = OrcidAuthService.prepareAuthorization();
-
   if (kIsWeb) {
-    await OrcidAuthService.savePendingRequest(authRequest);
+    // ORCID blocks browser-side code exchange (CORS), so web uses the
+    // implicit flow: the token is returned in the redirect URL fragment and
+    // handled by OrcidCallbackScreen after the redirect back.
+    final url = await OrcidAuthService.buildWebAuthorizationUrl();
     await launchUrl(
-      Uri.parse(authRequest.url),
+      Uri.parse(url),
       webOnlyWindowName: '_self',
     );
     return null;
   }
+
+  final authRequest = OrcidAuthService.prepareAuthorization();
 
   return Navigator.push<OrcidAuthResult>(
     context,

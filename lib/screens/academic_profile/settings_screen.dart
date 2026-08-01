@@ -29,10 +29,12 @@ class _AcademicSettingsScreenState extends State<AcademicSettingsScreen> {
 
   Future<void> _loadAuthStatus() async {
     final token = await OrcidAuthService.getStoredToken();
+    final linkedId = await OrcidAuthService.getLinkedOrcidId();
+    final linkedName = await OrcidAuthService.getLinkedName();
     if (mounted) {
       setState(() {
-        _isAuthorized = token != null && !token.isExpired;
-        _orcidName = token?.name;
+        _isAuthorized = (token != null && !token.isExpired) || linkedId != null;
+        _orcidName = token?.name ?? linkedName;
       });
     }
   }

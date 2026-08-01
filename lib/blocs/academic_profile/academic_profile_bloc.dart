@@ -29,13 +29,15 @@ class AcademicProfileBloc
 
     try {
       final token = await OrcidAuthService.getStoredToken();
-      final orcidId = event.orcidId.isNotEmpty ? event.orcidId : (token?.orcidId ?? '');
+      final linkedId = await OrcidAuthService.getLinkedOrcidId();
+      final orcidId = event.orcidId.isNotEmpty
+          ? event.orcidId
+          : (token?.orcidId ?? linkedId ?? '');
 
-      final hasAuth = await OrcidAuthService.hasValidToken();
-      print('DEBUG BLOC: _onLoadRequested: hasAuth=$hasAuth, orcidId=$orcidId');
-      if (!hasAuth || orcidId.isEmpty) {
+      print('DEBUG BLOC: _onLoadRequested: orcidId=$orcidId, linkedId=$linkedId');
+      if (orcidId.isEmpty) {
         emit(AcademicProfileNotAuthorized(
-          orcidId: orcidId,
+          orcidId: '',
           message: 'Connect your ORCID account to view your full profile.',
         ));
         return;
@@ -76,13 +78,15 @@ class AcademicProfileBloc
 
     try {
       final token = await OrcidAuthService.getStoredToken();
-      final orcidId = event.orcidId.isNotEmpty ? event.orcidId : (token?.orcidId ?? '');
+      final linkedId = await OrcidAuthService.getLinkedOrcidId();
+      final orcidId = event.orcidId.isNotEmpty
+          ? event.orcidId
+          : (token?.orcidId ?? linkedId ?? '');
 
-      final hasAuth = await OrcidAuthService.hasValidToken();
-      print('DEBUG BLOC: _onRefreshRequested: hasAuth=$hasAuth, orcidId=$orcidId');
-      if (!hasAuth || orcidId.isEmpty) {
+      print('DEBUG BLOC: _onRefreshRequested: orcidId=$orcidId, linkedId=$linkedId');
+      if (orcidId.isEmpty) {
         emit(AcademicProfileNotAuthorized(
-          orcidId: orcidId,
+          orcidId: '',
           message: 'ORCID authorization expired. Please reconnect.',
         ));
         return;
@@ -138,12 +142,13 @@ class AcademicProfileBloc
     CheckOrcidAuthorization event,
     Emitter<AcademicProfileState> emit,
   ) async {
-    final hasAuth = await OrcidAuthService.hasValidToken();
-    print('DEBUG BLOC: _onCheckAuthorization: hasAuth=$hasAuth');
-    if (!hasAuth) {
-      final token = await OrcidAuthService.getStoredToken();
+    final token = await OrcidAuthService.getStoredToken();
+    final linkedId = await OrcidAuthService.getLinkedOrcidId();
+    final orcidId = token?.orcidId ?? linkedId;
+    print('DEBUG BLOC: _onCheckAuthorization: orcidId=$orcidId, linkedId=$linkedId');
+    if (orcidId == null) {
       emit(AcademicProfileNotAuthorized(
-        orcidId: token?.orcidId,
+        orcidId: null,
         message: 'Your ORCID session has expired. Please authorize again.',
       ));
     }

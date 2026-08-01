@@ -1,5 +1,5 @@
 {
-    "version":  "2.4.1",
-    "apkUrl":  "https://github.com/DrMahmoudAljawarneh/PaperTrackerMobile/releases/download/v2.4.1/app-release.apk",
+    "version":  "2.4.4",
+    "apkUrl":  "https://github.com/DrMahmoudAljawarneh/PaperTrackerMobile/releases/download/v2.4.4/app-release.apk",
     "releaseNotes":  "Fixed app crash on launch caused by missing providers. ORCID sign-in now works on the web app (browser redirect flow). Added offline retry and pagination for paper and task sync. Improved test coverage across login, papers, and auth flow."
 }

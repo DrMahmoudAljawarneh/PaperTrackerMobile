@@ -31,9 +31,19 @@ class _OrcidCallbackScreenState extends State<OrcidCallbackScreen> {
 
   Future<void> _handleCallback() async {
     final uri = Uri.base;
+    // Implicit flow delivers the token in the URL fragment; keep query-param
+    // handling too in case ORCID ever switches the delivery style.
+    final fragment = uri.fragment.isNotEmpty
+        ? Uri.splitQueryString(uri.fragment)
+        : const <String, String>{};
     final query = uri.queryParameters;
 
-    if (query['code'] == null && query['error'] == null) {
+    final hasToken = fragment['access_token'] != null ||
+        query['access_token'] != null;
+    final hasCode = fragment['code'] != null || query['code'] != null;
+    final hasError = fragment['error'] != null || query['error'] != null;
+
+    if (!hasToken && !hasCode && !hasError) {
       // Not a real callback (e.g. user opened /callback directly).
       if (!mounted) return;
       context.go('/academic-profile');
