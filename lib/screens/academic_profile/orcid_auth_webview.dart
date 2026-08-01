@@ -20,6 +20,7 @@ Future<OrcidAuthResult?> startOrcidAuth(BuildContext context) async {
     // implicit flow: the token is returned in the redirect URL fragment and
     // handled by OrcidCallbackScreen after the redirect back.
     final url = await OrcidAuthService.buildWebAuthorizationUrl();
+    debugPrint('ORCID opening: $url');
     await launchUrl(
       Uri.parse(url),
       webOnlyWindowName: '_self',

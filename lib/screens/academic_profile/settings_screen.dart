@@ -199,31 +199,41 @@ class _AcademicSettingsScreenState extends State<AcademicSettingsScreen> {
 
   Future<void> _startAuth() async {
     if (!mounted) return;
-    final result = await startOrcidAuth(context);
-    if (result == null || !mounted) return;
-    if (result.isSuccess && result.token != null) {
-      await OrcidAuthService.disconnect();
-      await OrcidAuthService.saveToken(result.token!);
-      setState(() {
-        _isAuthorized = true;
-        _orcidName = result.token!.name;
-      });
-      context.read<AcademicProfileBloc>().add(
-            AcademicProfileLoadRequested(
-              result.token!.orcidId,
-              forceRefresh: true,
+    try {
+      final result = await startOrcidAuth(context);
+      if (result == null || !mounted) return;
+      if (result.isSuccess && result.token != null) {
+        await OrcidAuthService.disconnect();
+        await OrcidAuthService.saveToken(result.token!);
+        setState(() {
+          _isAuthorized = true;
+          _orcidName = result.token!.name;
+        });
+        context.read<AcademicProfileBloc>().add(
+              AcademicProfileLoadRequested(
+                result.token!.orcidId,
+                forceRefresh: true,
+              ),
+            );
+        Navigator.pop(context);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result.error ?? 'Authorization failed'),
+              backgroundColor: Colors.red,
             ),
           );
-      Navigator.pop(context);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result.error ?? 'Authorization failed'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        }
       }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not start ORCID authorization: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 

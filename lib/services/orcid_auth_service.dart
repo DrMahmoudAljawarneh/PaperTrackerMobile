@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -73,7 +74,7 @@ class OrcidAuthService {
     if (_cachedToken != null && !_cachedToken!.isExpired) {
       return _cachedToken;
     }
-    final raw = await _secureStorage.read(key: _tokenKey);
+    final raw = await _readToken();
     if (raw == null) return null;
     try {
       final token = OrcidToken.fromJson(jsonDecode(raw) as Map<String, dynamic>);
@@ -245,13 +246,40 @@ class OrcidAuthService {
     }
   }
 
+  // flutter_secure_storage's web implementation (WebCrypto-backed) can throw
+  // in some browsers, which would otherwise produce an unhandled exception (a
+  // gray screen in release builds). On web the token is not meaningfully more
+  // secure in secure storage than in SharedPreferences anyway (both are
+  // client-side and the key is local), so we use SharedPreferences there.
+  static Future<String?> _readToken() async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_tokenKey);
+    }
+    return _secureStorage.read(key: _tokenKey);
+  }
+
+  static Future<void> _writeToken(String json) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_tokenKey, json);
+    } else {
+      await _secureStorage.write(key: _tokenKey, value: json);
+    }
+  }
+
   static Future<void> saveToken(OrcidToken token) async {
-    await _secureStorage.write(key: _tokenKey, value: jsonEncode(token.toJson()));
+    await _writeToken(jsonEncode(token.toJson()));
     await _saveLinkedIdentity(token.orcidId, name: token.name);
   }
 
   static Future<void> _clearToken() async {
-    await _secureStorage.delete(key: _tokenKey);
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_tokenKey);
+    } else {
+      await _secureStorage.delete(key: _tokenKey);
+    }
     _cachedToken = null;
   }
 
@@ -356,7 +384,20 @@ class OrcidAuthService {
       expiresAt: DateTime.now().add(Duration(seconds: expiresIn)),
     );
 
-    await saveToken(token);
+    // Persist the linked iD first so the (short-lived) profile stays viewable
+    // even if persisting the web token itself fails.
+    try {
+      await _saveLinkedIdentity(token.orcidId, name: token.name);
+    } catch (e) {
+      debugPrint('ORCID: could not persist linked iD: $e');
+    }
+
+    try {
+      await saveToken(token);
+    } catch (e) {
+      debugPrint('ORCID: could not persist token (linked iD kept): $e');
+    }
+
     _cachedToken = token;
     return OrcidAuthResult(token: token);
   }

@@ -30,30 +30,42 @@ class _OrcidCallbackScreenState extends State<OrcidCallbackScreen> {
   }
 
   Future<void> _handleCallback() async {
-    final uri = Uri.base;
-    // Implicit flow delivers the token in the URL fragment; keep query-param
-    // handling too in case ORCID ever switches the delivery style.
-    final fragment = uri.fragment.isNotEmpty
-        ? Uri.splitQueryString(uri.fragment)
-        : const <String, String>{};
-    final query = uri.queryParameters;
+    try {
+      final uri = Uri.base;
+      debugPrint('ORCID callback URL: ${uri.toString()}');
+      // Implicit flow delivers the token in the URL fragment; keep query-param
+      // handling too in case ORCID ever switches the delivery style.
+      final fragment = uri.fragment.isNotEmpty
+          ? Uri.splitQueryString(uri.fragment)
+          : const <String, String>{};
+      final query = uri.queryParameters;
 
-    final hasToken = fragment['access_token'] != null ||
-        query['access_token'] != null;
-    final hasCode = fragment['code'] != null || query['code'] != null;
-    final hasError = fragment['error'] != null || query['error'] != null;
+      final hasToken = fragment['access_token'] != null ||
+          query['access_token'] != null;
+      final hasCode = fragment['code'] != null || query['code'] != null;
+      final hasError = fragment['error'] != null || query['error'] != null;
 
-    if (!hasToken && !hasCode && !hasError) {
-      // Not a real callback (e.g. user opened /callback directly).
+      if (!hasToken && !hasCode && !hasError) {
+        // Not a real callback (e.g. user opened /callback directly).
+        if (!mounted) return;
+        context.go('/academic-profile');
+        return;
+      }
+
+      final result = await OrcidAuthService.completeWebCallback(uri.toString());
       if (!mounted) return;
-      context.go('/academic-profile');
-      return;
+      _onResult(result);
+    } catch (e) {
+      debugPrint('ORCID callback error: $e');
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _error = 'Authorization failed: $e';
+      });
     }
+  }
 
-    final result = await OrcidAuthService.completeWebCallback(uri.toString());
-
-    if (!mounted) return;
-
+  void _onResult(OrcidAuthResult result) {
     if (result.isSuccess && result.token != null) {
       _orcidId = result.token!.orcidId;
       if (context.read<AuthBloc>().state is AuthAuthenticated) {

@@ -558,35 +558,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final authRepo = context.read<AuthRepository>();
 
     if (!mounted) return;
-    final result = await startOrcidAuth(context);
+    try {
+      final result = await startOrcidAuth(context);
 
-    if (result == null || !mounted) return;
+      if (result == null || !mounted) return;
 
-    if (result.isSuccess && result.token != null) {
-      final orcidId = result.token!.orcidId;
-      await authRepo.updateOrcidId(orcidId);
-      setState(() => _orcidId = orcidId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('ORCID authorized — ${result.token!.name ?? orcidId}'),
-            backgroundColor: AppTheme.successColor,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      if (result.isSuccess && result.token != null) {
+        final orcidId = result.token!.orcidId;
+        await authRepo.updateOrcidId(orcidId);
+        setState(() => _orcidId = orcidId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('ORCID authorized — ${result.token!.name ?? orcidId}'),
+              backgroundColor: AppTheme.successColor,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          final msg = result.error ?? 'ORCID authorization failed';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(msg),
+              backgroundColor: AppTheme.errorColor,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
       }
-    } else {
-      if (mounted) {
-        final msg = result.error ?? 'ORCID authorization failed';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg),
-            backgroundColor: AppTheme.errorColor,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not start ORCID authorization: $e'),
+          backgroundColor: AppTheme.errorColor,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 

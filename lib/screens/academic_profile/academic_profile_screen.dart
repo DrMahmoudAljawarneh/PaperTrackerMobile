@@ -42,28 +42,39 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
 
   Future<void> _startAuth([String? orcidId]) async {
     if (!mounted) return;
-    final result = await startOrcidAuth(context);
-    if (result == null || !mounted) return;
-    if (result.isSuccess && result.token != null) {
-      context.read<AcademicProfileBloc>().add(
-            AcademicProfileLoadRequested(
-              result.token!.orcidId,
-              forceRefresh: true,
+    try {
+      final result = await startOrcidAuth(context);
+      if (result == null || !mounted) return;
+      if (result.isSuccess && result.token != null) {
+        context.read<AcademicProfileBloc>().add(
+              AcademicProfileLoadRequested(
+                result.token!.orcidId,
+                forceRefresh: true,
+              ),
+            );
+      } else {
+        context.read<AcademicProfileBloc>().add(
+              CheckOrcidAuthorization(),
+            );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result.error ?? 'Authorization failed'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              behavior: SnackBarBehavior.floating,
             ),
           );
-    } else {
-      context.read<AcademicProfileBloc>().add(
-            CheckOrcidAuthorization(),
-          );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result.error ?? 'Authorization failed'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        }
       }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not start ORCID authorization: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
