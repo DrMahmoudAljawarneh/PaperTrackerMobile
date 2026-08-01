@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:paper_tracker/config/orcid_config.dart';
 
@@ -251,6 +252,41 @@ class OrcidAuthService {
   static Future<void> _clearToken() async {
     await _secureStorage.delete(key: _tokenKey);
     _cachedToken = null;
+  }
+
+  // --- Pending request persistence (used by the web OAuth redirect flow) ---
+
+  static const _pendingStateKey = 'orcid_pending_state';
+  static const _pendingVerifierKey = 'orcid_pending_verifier';
+
+  static Future<void> savePendingRequest(AuthorizationRequest request) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_pendingStateKey, request.state);
+    await prefs.setString(_pendingVerifierKey, request.codeVerifier);
+  }
+
+  static Future<AuthorizationRequest?> getPendingRequest() async {
+    final prefs = await SharedPreferences.getInstance();
+    final state = prefs.getString(_pendingStateKey);
+    final verifier = prefs.getString(_pendingVerifierKey);
+    if (state == null || verifier == null) return null;
+    return AuthorizationRequest(url: '', codeVerifier: verifier, state: state);
+  }
+
+  static Future<void> clearPendingRequest() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_pendingStateKey);
+    await prefs.remove(_pendingVerifierKey);
+  }
+
+  static Future<OrcidAuthResult> completeWebCallback(String redirectUrl) async {
+    final request = await getPendingRequest();
+    await clearPendingRequest();
+    if (request == null) {
+      return OrcidAuthResult(error: 'No pending authorization request found.');
+    }
+    final result = await completeAuthorization(redirectUrl, request);
+    return result;
   }
 
   static Future<void> disconnect() async {

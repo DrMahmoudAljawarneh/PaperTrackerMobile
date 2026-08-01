@@ -1,8 +1,38 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import 'package:paper_tracker/config/orcid_config.dart';
 import 'package:paper_tracker/services/orcid_auth_service.dart';
+
+/// Starts the ORCID authorization flow.
+///
+/// On mobile/desktop the flow runs inside an embedded [OrcidAuthWebView] and
+/// returns the [OrcidAuthResult] (or null if the user cancelled).
+///
+/// On web the current tab is redirected to ORCID; the result is delivered
+/// later via [OrcidCallbackScreen] after the redirect back, so this returns
+/// null immediately.
+Future<OrcidAuthResult?> startOrcidAuth(BuildContext context) async {
+  final authRequest = OrcidAuthService.prepareAuthorization();
+
+  if (kIsWeb) {
+    await OrcidAuthService.savePendingRequest(authRequest);
+    await launchUrl(
+      Uri.parse(authRequest.url),
+      webOnlyWindowName: '_self',
+    );
+    return null;
+  }
+
+  return Navigator.push<OrcidAuthResult>(
+    context,
+    MaterialPageRoute(
+      builder: (_) => OrcidAuthWebView(authRequest: authRequest),
+    ),
+  );
+}
 
 class OrcidAuthWebView extends StatefulWidget {
   final AuthorizationRequest authRequest;

@@ -9,7 +9,6 @@ import 'package:paper_tracker/config/theme.dart';
 import 'package:paper_tracker/models/orcid/orcid_record.dart';
 import 'package:paper_tracker/models/orcid/orcid_work.dart';
 import 'package:paper_tracker/screens/academic_profile/orcid_auth_webview.dart';
-import 'package:paper_tracker/services/orcid_auth_service.dart';
 import 'package:paper_tracker/widgets/academic/stat_card.dart';
 import 'package:paper_tracker/widgets/academic/interest_chip.dart';
 import 'package:paper_tracker/widgets/academic/external_profile_button.dart';
@@ -42,14 +41,8 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
   }
 
   Future<void> _startAuth([String? orcidId]) async {
-    final authRequest = OrcidAuthService.prepareAuthorization();
     if (!mounted) return;
-    final result = await Navigator.push<OrcidAuthResult>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => OrcidAuthWebView(authRequest: authRequest),
-      ),
-    );
+    final result = await startOrcidAuth(context);
     if (result == null || !mounted) return;
     if (result.isSuccess && result.token != null) {
       context.read<AcademicProfileBloc>().add(

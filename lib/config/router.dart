@@ -19,6 +19,7 @@ import 'package:paper_tracker/screens/profile/profile_screen.dart';
 import 'package:paper_tracker/screens/shell_screen.dart';
 import 'package:paper_tracker/screens/onboarding/onboarding_screen.dart';
 import 'package:paper_tracker/screens/academic_profile/academic_profile_screen.dart';
+import 'package:paper_tracker/screens/academic_profile/orcid_callback_screen.dart';
 import 'package:paper_tracker/screens/academic_profile/publications_screen.dart';
 import 'package:paper_tracker/screens/academic_profile/employment_screen.dart';
 import 'package:paper_tracker/screens/academic_profile/education_screen.dart';
@@ -39,7 +40,8 @@ GoRouter createRouter(AuthBloc authBloc) {
       final isAuthenticated = authState is AuthAuthenticated;
       final isAuthRoute = state.matchedLocation == '/login' ||
           state.matchedLocation == '/register' ||
-          state.matchedLocation == '/forgot-password';
+          state.matchedLocation == '/forgot-password' ||
+          state.matchedLocation == '/callback';
 
       if (!isAuthenticated && !isAuthRoute && state.matchedLocation != '/onboarding') {
         return '/login';
@@ -65,6 +67,10 @@ GoRouter createRouter(AuthBloc authBloc) {
       GoRoute(
         path: '/forgot-password',
         builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/callback',
+        builder: (context, state) => const OrcidCallbackScreen(),
       ),
       ShellRoute(
         navigatorKey: _shellNavigatorKey,

@@ -196,14 +196,8 @@ class _AcademicSettingsScreenState extends State<AcademicSettingsScreen> {
   }
 
   Future<void> _startAuth() async {
-    final authRequest = OrcidAuthService.prepareAuthorization();
     if (!mounted) return;
-    final result = await Navigator.push<OrcidAuthResult>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => OrcidAuthWebView(authRequest: authRequest),
-      ),
-    );
+    final result = await startOrcidAuth(context);
     if (result == null || !mounted) return;
     if (result.isSuccess && result.token != null) {
       await OrcidAuthService.disconnect();

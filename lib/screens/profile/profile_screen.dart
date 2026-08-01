@@ -556,15 +556,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _authorizeOrcid() async {
     final authRepo = context.read<AuthRepository>();
-    final authRequest = OrcidAuthService.prepareAuthorization();
 
     if (!mounted) return;
-    final result = await Navigator.push<OrcidAuthResult>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => OrcidAuthWebView(authRequest: authRequest),
-      ),
-    );
+    final result = await startOrcidAuth(context);
 
     if (result == null || !mounted) return;
 
