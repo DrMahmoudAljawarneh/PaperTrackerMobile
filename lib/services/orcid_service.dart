@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 
 class OrcidProfile {
   final String orcidId;
@@ -31,6 +31,20 @@ class OrcidResult {
 class OrcidService {
   static const _apiBase = 'https://pub.orcid.org/v3.0';
 
+  final Dio _dio;
+
+  OrcidService({Dio? dio})
+      : _dio = dio ??
+            Dio(BaseOptions(
+              baseUrl: _apiBase,
+              connectTimeout: const Duration(seconds: 15),
+              receiveTimeout: const Duration(seconds: 15),
+              headers: {
+                'Accept': 'application/json',
+                'User-Agent': 'PaperTracker/1.0',
+              },
+            ));
+
   static bool isValidId(String id) {
     final cleaned = _extractId(id);
     return RegExp(r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$').hasMatch(cleaned);
@@ -40,7 +54,6 @@ class OrcidService {
 
   static String _extractId(String input) {
     final trimmed = input.trim();
-    // Handle full URL: https://orcid.org/0000-0002-1825-0097
     final urlMatch =
         RegExp(r'orcid\.org/(\d{4}-\d{4}-\d{4}-\d{3}[0-9X])')
             .firstMatch(trimmed);
@@ -48,7 +61,7 @@ class OrcidService {
     return trimmed;
   }
 
-  static Future<OrcidResult> fetchProfile(String rawId) async {
+  Future<OrcidResult> fetchProfile(String rawId) async {
     final orcidId = _extractId(rawId);
 
     if (!RegExp(r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$').hasMatch(orcidId)) {
@@ -59,14 +72,7 @@ class OrcidService {
     }
 
     try {
-      final url = Uri.parse('$_apiBase/$orcidId/record');
-      final response = await http.get(
-        url,
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'PaperTracker/1.0',
-        },
-      );
+      final response = await _dio.get('/$orcidId/record');
 
       if (response.statusCode == 404) {
         return const OrcidResult(
@@ -90,7 +96,7 @@ class OrcidService {
         );
       }
 
-      final profile = _parseRecord(response.body, orcidId);
+      final profile = _parseRecord(response.data as String?, orcidId);
       if (profile != null) return OrcidResult(profile: profile);
 
       return const OrcidResult(
@@ -106,12 +112,12 @@ class OrcidService {
     }
   }
 
-  static OrcidProfile? _parseRecord(String body, String orcidId) {
+  OrcidProfile? _parseRecord(String? body, String orcidId) {
     try {
+      if (body == null) return null;
       final json = jsonDecode(body);
       if (json is! Map<String, dynamic>) return null;
 
-      // Try /record response structure
       final person = json['person'] as Map<String, dynamic>?;
       if (person != null) {
         final name = person['name'] as Map<String, dynamic>?;
@@ -129,7 +135,6 @@ class OrcidService {
         }
       }
 
-      // Try direct name fields (some endpoints)
       final name = json['name'] as Map<String, dynamic>?;
       if (name != null) {
         final given = name['given-names']?.toString() ?? '';
@@ -140,7 +145,6 @@ class OrcidService {
         }
       }
 
-      // Fallback: try top-level given-names / family-name
       final given = json['given-names']?.toString() ?? '';
       final family = json['family-name']?.toString() ?? '';
       final displayName = '$given $family'.trim();
@@ -160,22 +164,19 @@ class OrcidService {
     return outerMap?[inner]?.toString();
   }
 
-  static Future<List<OrcidProfile>> searchProfiles(String query) async {
+  Future<List<OrcidProfile>> searchProfiles(String query) async {
     try {
-      final url = Uri.parse(
-          '$_apiBase/expanded-search?q=${Uri.encodeComponent(query)}&rows=10');
-      final response = await http.get(
-        url,
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'PaperTracker/1.0',
+      final response = await _dio.get(
+        '/expanded-search',
+        queryParameters: {
+          'q': query,
+          'rows': 10,
         },
       );
-      if (response.statusCode != 200) return [];
+      final data = response.data as Map<String, dynamic>?;
+      if (data == null) return [];
 
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      final expandedSearch =
-          json['expanded-search'] as Map<String, dynamic>?;
+      final expandedSearch = data['expanded-search'] as Map<String, dynamic>?;
       if (expandedSearch == null) return [];
 
       final results = expandedSearch['expanded-result'] as List<dynamic>?;

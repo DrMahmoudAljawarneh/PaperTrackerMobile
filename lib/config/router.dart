@@ -25,35 +25,21 @@ import 'package:paper_tracker/screens/academic_profile/education_screen.dart';
 import 'package:paper_tracker/screens/academic_profile/funding_screen.dart';
 import 'package:paper_tracker/screens/academic_profile/settings_screen.dart';
 import 'package:paper_tracker/models/paper.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
 GoRouter createRouter(AuthBloc authBloc) {
-  Future<bool> getOnboardingCached() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('onboarding_completed') ?? false;
-  }
-
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/dashboard',
     refreshListenable: _GoRouterRefreshStream(authBloc.stream),
     redirect: (context, state) async {
-      final onboardingCompleted = await getOnboardingCached();
-
-      if (!onboardingCompleted) {
-        if (state.matchedLocation != '/onboarding') {
-          return '/onboarding';
-        }
-        return null;
-      }
-
       final authState = authBloc.state;
       final isAuthenticated = authState is AuthAuthenticated;
       final isAuthRoute = state.matchedLocation == '/login' ||
-          state.matchedLocation == '/register';
+          state.matchedLocation == '/register' ||
+          state.matchedLocation == '/forgot-password';
 
       if (!isAuthenticated && !isAuthRoute && state.matchedLocation != '/onboarding') {
         return '/login';
@@ -196,7 +182,6 @@ GoRouter createRouter(AuthBloc authBloc) {
   );
 }
 
-// Helper to convert Bloc stream into a Listenable for GoRouter
 class _GoRouterRefreshStream extends ChangeNotifier {
   _GoRouterRefreshStream(Stream<dynamic> stream) {
     _subscription = stream.listen((_) => notifyListeners());

@@ -1,12 +1,15 @@
 import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:paper_tracker/models/notification_model.dart';
 import 'package:paper_tracker/models/paper_task.dart';
 import 'package:paper_tracker/repositories/notification_repository.dart';
 import 'package:paper_tracker/utils/firebase_utils.dart';
+import 'package:retry/retry.dart';
 
 class TaskRepository {
   final FirebaseDatabase _db;
   final NotificationRepository? _notificationRepository;
+  static const int _pageSize = 50;
 
   TaskRepository({
     FirebaseDatabase? db,
@@ -16,7 +19,6 @@ class TaskRepository {
 
   DatabaseReference get _tasksRef => _db.ref('tasks');
 
-  /// Stream tasks for a specific paper
   Stream<List<PaperTask>> getTasksForPaper(String paperId) {
     return _tasksRef
         .orderByChild('paperId')
@@ -29,50 +31,85 @@ class TaskRepository {
           .map((e) =>
               PaperTask.fromMap(e.key, safeCastMap(e.value)))
           .toList();
-      // Sort by createdAt ascending (client-side)
       tasks.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       return tasks;
     });
   }
 
-  /// Create a new task. Pass [currentUserId], [currentUserName], and [paperTitle]
-  /// to notify the assignee.
+  Future<List<PaperTask>> getTasksForPapersPaginated(List<String> paperIds, {String? lastKey, int limit = _pageSize}) async {
+    return retry(
+      () => _fetchTasksPage(paperIds, lastKey: lastKey, limit: limit),
+      maxAttempts: 3,
+      retryIf: (e) => e is FirebaseException,
+    );
+  }
+
+  Future<List<PaperTask>> _fetchTasksPage(List<String> paperIds, {String? lastKey, int limit = _pageSize}) async {
+    final snapshot = await _tasksRef.get();
+    if (!snapshot.exists) return [];
+    final data = safeCastMap(snapshot.value);
+    final paperIdSet = paperIds.toSet();
+    final allTasks = <PaperTask>[];
+    for (final entry in data.entries) {
+      final map = safeCastMap(entry.value);
+      if (paperIdSet.contains(map['paperId'])) {
+        allTasks.add(PaperTask.fromMap(entry.key, map));
+      }
+    }
+    allTasks.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+    int startIndex = 0;
+    if (lastKey != null) {
+      startIndex = allTasks.indexWhere((t) => t.id == lastKey);
+      if (startIndex < 0) startIndex = 0;
+      startIndex += 1;
+    }
+    return allTasks.skip(startIndex).take(limit).toList();
+  }
+
   Future<String> createTask(
     PaperTask task, {
     String? currentUserId,
     String? currentUserName,
     String? paperTitle,
   }) async {
-    final newRef = _tasksRef.push();
-    await newRef.set(task.toMap());
+    return retry(
+      () async {
+        final newRef = _tasksRef.push();
+        await newRef.set(task.toMap());
 
-    // Notify the assignee if one is set
-    if (_notificationRepository != null &&
-        task.assigneeId.isNotEmpty &&
-        currentUserId != null &&
-        task.assigneeId != currentUserId) {
-      await _notificationRepository.pushNotificationToMany(
-        recipientIds: [task.assigneeId],
-        senderId: currentUserId,
-        senderName: currentUserName ?? '',
-        title: 'Task Assigned',
-        message: paperTitle != null
-            ? 'You were assigned "${task.title}" on "$paperTitle"'
-            : 'You were assigned "${task.title}"',
-        type: NotificationType.taskAssigned,
-        relatedPaperId: task.paperId,
-      );
-    }
+        if (_notificationRepository != null &&
+            task.assigneeId.isNotEmpty &&
+            currentUserId != null &&
+            task.assigneeId != currentUserId) {
+          await _notificationRepository.pushNotificationToMany(
+            recipientIds: [task.assigneeId],
+            senderId: currentUserId,
+            senderName: currentUserName ?? '',
+            title: 'Task Assigned',
+            message: paperTitle != null
+                ? 'You were assigned "${task.title}" on "$paperTitle"'
+                : 'You were assigned "${task.title}"',
+            type: NotificationType.taskAssigned,
+            relatedPaperId: task.paperId,
+          );
+        }
 
-    return newRef.key!;
+        return newRef.key!;
+      },
+      maxAttempts: 3,
+      retryIf: (e) => e is FirebaseException,
+    );
   }
 
-  /// Update a task
   Future<void> updateTask(PaperTask task) async {
-    await _tasksRef.child(task.id).update(task.toMap());
+    return retry(
+      () => _tasksRef.child(task.id).update(task.toMap()),
+      maxAttempts: 3,
+      retryIf: (e) => e is FirebaseException,
+    );
   }
 
-  /// Update specific fields of a task without overwriting others
   Future<void> updateTaskFields(
     String taskId, {
     required String title,
@@ -88,11 +125,13 @@ class TaskRepository {
     if (dueDate != null) updateMap['dueDate'] = dueDate.toIso8601String();
     if (priority != null) updateMap['priority'] = priority;
     if (progress != null) updateMap['progress'] = progress;
-    await _tasksRef.child(taskId).update(updateMap);
+    await retry(
+      () => _tasksRef.child(taskId).update(updateMap),
+      maxAttempts: 3,
+      retryIf: (e) => e is FirebaseException,
+    );
   }
 
-  /// Toggle task completion. Pass [currentUserId], [currentUserName], and [paperTitle]
-  /// to notify when a task is completed.
   Future<void> toggleTask(
     String taskId,
     bool completed, {
@@ -103,9 +142,12 @@ class TaskRepository {
     String? taskTitle,
     String? assigneeId,
   }) async {
-    await _tasksRef.child(taskId).update({'completed': completed});
+    await retry(
+      () => _tasksRef.child(taskId).update({'completed': completed}),
+      maxAttempts: 3,
+      retryIf: (e) => e is FirebaseException,
+    );
 
-    // If task was just completed, notify task owner / assignee
     if (completed &&
         _notificationRepository != null &&
         assigneeId != null &&
@@ -126,7 +168,6 @@ class TaskRepository {
     }
   }
 
-  /// Get all tasks for a list of paper IDs (one-shot fetch)
   Future<List<PaperTask>> getTasksForPapers(List<String> paperIds) async {
     final snapshot = await _tasksRef.get();
     if (!snapshot.exists) return [];
@@ -143,15 +184,21 @@ class TaskRepository {
     return tasks;
   }
 
-  /// Delete a task
   Future<void> deleteTask(String taskId) async {
-    await _tasksRef.child(taskId).remove();
+    await retry(
+      () => _tasksRef.child(taskId).remove(),
+      maxAttempts: 3,
+      retryIf: (e) => e is FirebaseException,
+    );
   }
 
-  /// Get count of completed tasks for a paper
   Future<Map<String, int>> getTaskStats(String paperId) async {
     final snapshot =
-        await _tasksRef.orderByChild('paperId').equalTo(paperId).get();
+        await retry(
+      () => _tasksRef.orderByChild('paperId').equalTo(paperId).get(),
+      maxAttempts: 3,
+      retryIf: (e) => e is FirebaseException,
+    );
     if (!snapshot.exists) return {'total': 0, 'completed': 0};
     final data = safeCastMap(snapshot.value);
     final total = data.length;

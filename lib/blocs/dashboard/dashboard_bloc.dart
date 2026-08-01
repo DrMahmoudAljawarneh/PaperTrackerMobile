@@ -4,7 +4,6 @@ import 'package:paper_tracker/blocs/dashboard/dashboard_event.dart';
 import 'package:paper_tracker/blocs/dashboard/dashboard_state.dart';
 import 'package:paper_tracker/models/paper.dart';
 import 'package:paper_tracker/repositories/paper_repository.dart';
-import 'dart:convert';
 
 class DashboardBloc extends HydratedBloc<DashboardEvent, DashboardState> {
   final PaperRepository _paperRepository;

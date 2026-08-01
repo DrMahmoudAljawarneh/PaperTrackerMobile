@@ -1,6 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 
 class PaperMetadata {
   final String title;
@@ -26,15 +25,21 @@ class MetadataService {
   static const _crossrefApi = 'https://api.crossref.org/works';
   static const _arxivApi = 'https://export.arxiv.org/api/query';
 
+  final Dio _dio;
+
+  MetadataService({Dio? dio})
+      : _dio = dio ??
+            Dio(BaseOptions(
+              connectTimeout: const Duration(seconds: 15),
+              receiveTimeout: const Duration(seconds: 15),
+              headers: {'User-Agent': 'PaperTracker/1.0'},
+            ));
+
   Future<PaperMetadata?> fetchByDoi(String doi) async {
     try {
-      final url = Uri.parse('$_crossrefApi/$doi');
-      final response =
-          await http.get(url, headers: {'Accept': 'application/json'});
-      if (response.statusCode != 200) return null;
-
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      final message = json['message'] as Map<String, dynamic>?;
+      final response = await _dio.get('$_crossrefApi/$doi');
+      final data = response.data as Map<String, dynamic>?;
+      final message = data?['message'] as Map<String, dynamic>?;
       if (message == null) return null;
 
       final title = (message['title'] as List?)?.first?.toString() ?? '';
@@ -71,12 +76,11 @@ class MetadataService {
 
   Future<PaperMetadata?> fetchByArxiv(String arxivId) async {
     try {
-      final url =
-          Uri.parse('$_arxivApi?id_list=$arxivId&max_results=1');
-      final response = await http.get(url);
-      if (response.statusCode != 200) return null;
-
-      final xml = response.body;
+      final response = await _dio.get(_arxivApi, queryParameters: {
+        'id_list': arxivId,
+        'max_results': 1,
+      });
+      final xml = response.data as String;
       final title = _extractXml(xml, 'title')?.trim() ?? '';
       final abstract = _extractXml(xml, 'summary')?.trim() ?? '';
       final authors =

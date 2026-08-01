@@ -1,7 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:path_provider/path_provider.dart';
@@ -12,14 +11,16 @@ class UpdateService {
   static const String _baseUrl = 'https://papercheck-2026.web.app';
   static const String _versionUrl = '$_baseUrl/version.json';
 
-  /// Check for app updates and show dialog if available.
-  /// Call this from the dashboard on startup.
   static Future<void> checkForUpdate(BuildContext context) async {
+    final dio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
+    ));
     try {
-      final response = await http.get(Uri.parse(_versionUrl));
+      final response = await dio.get(_versionUrl);
       if (response.statusCode != 200) return;
 
-      final data = json.decode(response.body) as Map<String, dynamic>;
+      final data = response.data as Map<String, dynamic>;
       final remoteVersion = data['version'] as String? ?? '';
       final releaseNotes = data['releaseNotes'] as String? ?? '';
       final apkUrl = data['apkUrl'] as String? ?? '';
@@ -41,7 +42,6 @@ class UpdateService {
     }
   }
 
-  /// Compare semantic versions. Returns true if remote > local.
   static bool _isNewerVersion(String remote, String local) {
     final remoteParts = remote.split('.').map(int.tryParse).toList();
     final localParts = local.split('.').map(int.tryParse).toList();
@@ -114,7 +114,6 @@ class UpdateService {
   static Future<void> _startDownload(String url) async {
     try {
       if (kIsWeb) {
-        // On web, open the download URL in a new tab
         final uri = Uri.parse(url);
         if (await canLaunchUrl(uri)) {
           await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -122,10 +121,8 @@ class UpdateService {
         return;
       }
 
-      // Request notification permission to show the progress bar (required on Android 13+)
       await Permission.notification.request();
 
-      // Get external storage directory for the download
       final directory = await getExternalStorageDirectory();
       if (directory == null) return;
 
@@ -137,7 +134,7 @@ class UpdateService {
         openFileFromNotification: true,
         saveInPublicStorage: true,
       );
-      
+
       debugPrint('Update download started with taskId: $taskId');
     } catch (e) {
       debugPrint('Failed to start download: $e');

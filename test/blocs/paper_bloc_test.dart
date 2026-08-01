@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:paper_tracker/blocs/paper/paper_bloc.dart';
 import 'package:paper_tracker/blocs/paper/paper_event.dart';
@@ -21,8 +23,23 @@ void main() {
   late StatusHistoryRepository statusHistoryRepository;
   late PaperBloc paperBloc;
 
-  setUpAll(() {
+  late Directory tempDir;
+
+  setUpAll(() async {
     registerFallbackValue(FakePaper());
+    tempDir = await Directory.systemTemp.createTemp('hydrated_test');
+    HydratedBloc.storage = await HydratedStorage.build(
+      storageDirectory: HydratedStorageDirectory(tempDir.path),
+    );
+  });
+
+  tearDownAll(() async {
+    try {
+      await tempDir.delete(recursive: true);
+    } catch (_) {
+      // Best-effort cleanup; Hive may still hold a lock on Windows.
+    }
+    HydratedBloc.storage = null;
   });
 
   setUp(() {

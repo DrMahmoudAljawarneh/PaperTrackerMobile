@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /papers/{paperId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid in resource.data.authorIds;
+    }
+    match /papersByUser/{userId}/{paperId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /tasks/{taskId} {
+      allow read, write: if request.auth != null
+        && exists(/databases/$(database)/documents/papers/$(resource.data.paperId))
+        && request.auth.uid in get(/databases/$(database)/documents/papers/$(resource.data.paperId)).data.authorIds;
+    }
+    match /comments/{commentId} {
+      allow read, write: if request.auth != null
+        && exists(/databases/$(database)/documents/papers/$(resource.data.paperId))
+        && request.auth.uid in get(/databases/$(database)/documents/papers/$(resource.data.paperId)).data.authorIds;
+    }
+    match /notifications/{userId}/{notificationId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /fcmTokens/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /statusHistory/{paperId} {
+      allow read, write: if request.auth != null
+        && exists(/databases/$(database)/documents/papers/$(paperId))
+        && request.auth.uid in get(/databases/$(database)/documents/papers/$(paperId)).data.authorIds;
+    }
+    match /submissions/{paperId} {
+      allow read, write: if request.auth != null
+        && exists(/databases/$(database)/documents/papers/$(paperId))
+        && request.auth.uid in get(/databases/$(database)/documents/papers/$(paperId)).data.authorIds;
+    }
+  }
+}

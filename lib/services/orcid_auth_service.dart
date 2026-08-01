@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:paper_tracker/config/orcid_config.dart';
 
@@ -64,6 +64,7 @@ class AuthorizationRequest {
 
 class OrcidAuthService {
   static const _tokenKey = 'orcid_token';
+  static final _secureStorage = const FlutterSecureStorage();
 
   static OrcidToken? _cachedToken;
 
@@ -71,8 +72,7 @@ class OrcidAuthService {
     if (_cachedToken != null && !_cachedToken!.isExpired) {
       return _cachedToken;
     }
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_tokenKey);
+    final raw = await _secureStorage.read(key: _tokenKey);
     if (raw == null) return null;
     try {
       final token = OrcidToken.fromJson(jsonDecode(raw) as Map<String, dynamic>);
@@ -245,13 +245,11 @@ class OrcidAuthService {
   }
 
   static Future<void> saveToken(OrcidToken token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, jsonEncode(token.toJson()));
+    await _secureStorage.write(key: _tokenKey, value: jsonEncode(token.toJson()));
   }
 
   static Future<void> _clearToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
+    await _secureStorage.delete(key: _tokenKey);
     _cachedToken = null;
   }
 
