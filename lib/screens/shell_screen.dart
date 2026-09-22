@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:paper_tracker/blocs/auth/auth_bloc.dart';
@@ -18,8 +19,11 @@ import 'package:paper_tracker/blocs/paper/paper_state.dart';
 import 'package:paper_tracker/blocs/academic_profile/academic_profile_bloc.dart';
 import 'package:paper_tracker/blocs/academic_profile/academic_profile_event.dart';
 import 'package:paper_tracker/blocs/academic_profile/academic_profile_state.dart';
+import 'package:paper_tracker/blocs/chat_list/chat_list_bloc.dart';
+import 'package:paper_tracker/blocs/chat_list/chat_list_state.dart';
 import 'package:paper_tracker/repositories/academic_profile_repository.dart';
 import 'package:paper_tracker/utils/back_handler.dart';
+import 'package:paper_tracker/widgets/command_palette_dialog.dart';
 
 class ShellScreen extends StatefulWidget {
   final Widget child;
@@ -116,6 +120,11 @@ class _ShellScreenState extends State<ShellScreen> with WidgetsBindingObserver {
               },
             ),
           ],
+          IconButton(
+            icon: const Icon(Icons.search_rounded),
+            tooltip: 'Command Palette (Ctrl+K)',
+            onPressed: () => CommandPaletteDialog.show(context),
+          ),
           // Profile icon
           IconButton(
             icon: const Icon(Icons.account_circle_outlined),
@@ -145,52 +154,90 @@ class _ShellScreenState extends State<ShellScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          const ConnectivityBanner(),
-          Expanded(
-            child: DoubleBackExit(
-              message: 'Tap again to exit Paper Tracker',
-              child: widget.child,
-            ),
+      body: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyK, control: true): () {
+            CommandPaletteDialog.show(context);
+          },
+          const SingleActivator(LogicalKeyboardKey.keyK, meta: true): () {
+            CommandPaletteDialog.show(context);
+          },
+        },
+        child: Focus(
+          autofocus: true,
+          child: Column(
+            children: [
+              const ConnectivityBanner(),
+              Expanded(
+                child: DoubleBackExit(
+                  message: 'Tap again to exit Paper Tracker',
+                  child: widget.child,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).bottomNavigationBarTheme.backgroundColor,
+          color: Theme.of(context).navigationBarTheme.backgroundColor ??
+              Theme.of(context).scaffoldBackgroundColor,
           border: Border(
             top: BorderSide(
-              color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
               width: 0.5,
             ),
           ),
         ),
-        child: BottomNavigationBar(
-          currentIndex: _calculateSelectedIndex(context),
-          onTap: (index) => _onItemTapped(index, context),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard_rounded),
-              activeIcon: Icon(Icons.dashboard_rounded),
-              label: 'Dashboard',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.article_outlined),
-              activeIcon: Icon(Icons.article_rounded),
-              label: 'Papers',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.chat_bubble_outline),
-              activeIcon: Icon(Icons.chat_bubble),
-              label: 'Chats',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.school_outlined),
-              activeIcon: Icon(Icons.school),
-              label: 'Academic',
-            ),
-          ],
+        child: BlocBuilder<ChatListBloc, ChatListState>(
+          builder: (context, chatState) {
+            int unreadChats = 0;
+            if (chatState is ChatListLoaded) {
+              unreadChats = chatState.chats
+                  .fold<int>(0, (sum, chat) => sum + chat.unreadCount);
+            }
+
+            return NavigationBar(
+              selectedIndex: _calculateSelectedIndex(context),
+              onDestinationSelected: (index) => _onItemTapped(index, context),
+              destinations: [
+                const NavigationDestination(
+                  icon: Icon(Icons.dashboard_outlined),
+                  selectedIcon: Icon(Icons.dashboard_rounded),
+                  label: 'Dashboard',
+                ),
+                const NavigationDestination(
+                  icon: Icon(Icons.article_outlined),
+                  selectedIcon: Icon(Icons.article_rounded),
+                  label: 'Papers',
+                ),
+                NavigationDestination(
+                  icon: Badge(
+                    isLabelVisible: unreadChats > 0,
+                    label: Text(
+                      unreadChats > 99 ? '99+' : '$unreadChats',
+                      style: const TextStyle(fontSize: 10),
+                    ),
+                    child: const Icon(Icons.chat_bubble_outline),
+                  ),
+                  selectedIcon: Badge(
+                    isLabelVisible: unreadChats > 0,
+                    label: Text(
+                      unreadChats > 99 ? '99+' : '$unreadChats',
+                      style: const TextStyle(fontSize: 10),
+                    ),
+                    child: const Icon(Icons.chat_bubble),
+                  ),
+                  label: 'Chats',
+                ),
+                const NavigationDestination(
+                  icon: Icon(Icons.school_outlined),
+                  selectedIcon: Icon(Icons.school_rounded),
+                  label: 'Academic',
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

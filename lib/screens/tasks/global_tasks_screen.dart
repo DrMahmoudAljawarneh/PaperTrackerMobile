@@ -177,8 +177,8 @@ class _GlobalTasksScreenState extends State<GlobalTasksScreen> {
       return ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         itemCount: 5,
-        itemBuilder: (context, index) => Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+        itemBuilder: (context, index) => const Padding(
+          padding: EdgeInsets.only(bottom: 12),
           child: ShimmerLoading(width: double.infinity, height: 72, borderRadius: 12),
         ),
       );

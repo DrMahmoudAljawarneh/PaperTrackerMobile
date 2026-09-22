@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dio/dio.dart';
 import 'package:paper_tracker/blocs/academic_profile/academic_profile_event.dart';
@@ -34,9 +35,9 @@ class AcademicProfileBloc
           ? event.orcidId
           : (token?.orcidId ?? linkedId ?? '');
 
-      print('DEBUG BLOC: _onLoadRequested: orcidId=$orcidId, linkedId=$linkedId');
+      debugPrint('DEBUG BLOC: _onLoadRequested: orcidId=$orcidId, linkedId=$linkedId');
       if (orcidId.isEmpty) {
-        emit(AcademicProfileNotAuthorized(
+        emit(const AcademicProfileNotAuthorized(
           orcidId: '',
           message: 'Connect your ORCID account to view your full profile.',
         ));
@@ -56,11 +57,10 @@ class AcademicProfileBloc
 
       _fetchSupplementaryMetrics(orcidId);
     } on DioException catch (e) {
-      print('DEBUG BLOC: DioException in _onLoadRequested: $e');
+      debugPrint('DEBUG BLOC: DioException in _onLoadRequested: $e');
       _handleError(emit, e);
     } catch (e, s) {
-      print('DEBUG BLOC: Exception in _onLoadRequested: $e');
-      print(s);
+      debugPrint('DEBUG BLOC: Exception in _onLoadRequested: $e\n$s');
       emit(AcademicProfileError(
         e.toString(),
         isOffline: e.toString().contains('SocketException'),
@@ -83,9 +83,9 @@ class AcademicProfileBloc
           ? event.orcidId
           : (token?.orcidId ?? linkedId ?? '');
 
-      print('DEBUG BLOC: _onRefreshRequested: orcidId=$orcidId, linkedId=$linkedId');
+      debugPrint('DEBUG BLOC: _onRefreshRequested: orcidId=$orcidId, linkedId=$linkedId');
       if (orcidId.isEmpty) {
-        emit(AcademicProfileNotAuthorized(
+        emit(const AcademicProfileNotAuthorized(
           orcidId: '',
           message: 'ORCID authorization expired. Please reconnect.',
         ));
@@ -102,11 +102,10 @@ class AcademicProfileBloc
 
       _fetchSupplementaryMetrics(orcidId);
     } on DioException catch (e) {
-      print('DEBUG BLOC: DioException in _onRefreshRequested: $e');
+      debugPrint('DEBUG BLOC: DioException in _onRefreshRequested: $e');
       _handleError(emit, e);
     } catch (e, s) {
-      print('DEBUG BLOC: Exception in _onRefreshRequested: $e');
-      print(s);
+      debugPrint('DEBUG BLOC: Exception in _onRefreshRequested: $e\n$s');
       emit(AcademicProfileError(
         e.toString(),
         isOffline: e.toString().contains('SocketException'),
@@ -145,9 +144,9 @@ class AcademicProfileBloc
     final token = await OrcidAuthService.getStoredToken();
     final linkedId = await OrcidAuthService.getLinkedOrcidId();
     final orcidId = token?.orcidId ?? linkedId;
-    print('DEBUG BLOC: _onCheckAuthorization: orcidId=$orcidId, linkedId=$linkedId');
+    debugPrint('DEBUG BLOC: _onCheckAuthorization: orcidId=$orcidId, linkedId=$linkedId');
     if (orcidId == null) {
-      emit(AcademicProfileNotAuthorized(
+      emit(const AcademicProfileNotAuthorized(
         orcidId: null,
         message: 'Your ORCID session has expired. Please authorize again.',
       ));

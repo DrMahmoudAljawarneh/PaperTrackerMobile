@@ -54,7 +54,7 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
             );
       } else {
         context.read<AcademicProfileBloc>().add(
-              CheckOrcidAuthorization(),
+              const CheckOrcidAuthorization(),
             );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

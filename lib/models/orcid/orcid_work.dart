@@ -19,23 +19,28 @@ class OrcidWork {
 
   factory OrcidWork.fromJson(Map<String, dynamic> json) {
     final titleMap = json['title'] as Map<String, dynamic>?;
-    final titleVal = titleMap?['title']?['value']?.toString() ?? '';
-    final subtitleVal = titleMap?['subtitle']?['value']?.toString() ?? '';
+    final innerTitle = titleMap?['title'] as Map<String, dynamic>?;
+    final titleVal = innerTitle?['value']?.toString() ?? '';
+    final innerSubtitle = titleMap?['subtitle'] as Map<String, dynamic>?;
+    final subtitleVal = innerSubtitle?['value']?.toString() ?? '';
 
     final journalMap = json['journal-title'] as Map<String, dynamic>?;
     final journalVal = journalMap?['value']?.toString() ?? '';
 
     final pubDate = json['publication-date'] as Map<String, dynamic>?;
-    final year = int.tryParse(pubDate?['year']?['value']?.toString() ?? '') ?? 0;
+    final yearMap = pubDate?['year'] as Map<String, dynamic>?;
+    final year = int.tryParse(yearMap?['value']?.toString() ?? '') ?? 0;
 
     final extIds = json['external-ids'] as Map<String, dynamic>?;
     final extIdList = extIds?['external-id'] as List<dynamic>?;
     String doiVal = '';
     if (extIdList != null) {
       for (final item in extIdList) {
-        if (item is Map && item['external-id-type'] == 'doi') {
-          doiVal = item['external-id-value']?.toString() ?? '';
-          break;
+        if (item is Map) {
+          if (item['external-id-type']?.toString() == 'doi') {
+            doiVal = item['external-id-value']?.toString() ?? '';
+            break;
+          }
         }
       }
     }

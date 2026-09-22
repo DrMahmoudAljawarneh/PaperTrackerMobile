@@ -54,7 +54,7 @@ void main() {
             .thenAnswer((_) => Stream.value([]));
         return notificationBloc;
       },
-      act: (bloc) => bloc.add(NotificationsLoadRequested('uid1')),
+      act: (bloc) => bloc.add(const NotificationsLoadRequested('uid1')),
       expect: () => [
         isA<NotificationLoading>(),
         isA<NotificationsLoaded>(),
@@ -95,7 +95,7 @@ void main() {
             .thenAnswer((_) => Stream.value(notifications));
         return notificationBloc;
       },
-      act: (bloc) => bloc.add(NotificationsLoadRequested('uid1')),
+      act: (bloc) => bloc.add(const NotificationsLoadRequested('uid1')),
       expect: () => [
         isA<NotificationLoading>(),
         isA<NotificationsLoaded>().having(
@@ -128,7 +128,7 @@ void main() {
             .thenAnswer((_) => Stream.value(notifications));
         return notificationBloc;
       },
-      act: (bloc) => bloc.add(NotificationsLoadRequested('uid1')),
+      act: (bloc) => bloc.add(const NotificationsLoadRequested('uid1')),
       expect: () => [
         isA<NotificationLoading>(),
         isA<NotificationsLoaded>(),

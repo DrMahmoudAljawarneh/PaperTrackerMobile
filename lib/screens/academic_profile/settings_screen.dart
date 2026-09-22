@@ -209,6 +209,7 @@ class _AcademicSettingsScreenState extends State<AcademicSettingsScreen> {
           _isAuthorized = true;
           _orcidName = result.token!.name;
         });
+        if (!mounted) return;
         context.read<AcademicProfileBloc>().add(
               AcademicProfileLoadRequested(
                 result.token!.orcidId,
@@ -244,16 +245,15 @@ class _AcademicSettingsScreenState extends State<AcademicSettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('academic_orcid_id', orcidId);
 
+    if (!mounted) return;
     context.read<AcademicProfileBloc>().add(
           AcademicProfileLoadRequested(orcidId, forceRefresh: true),
         );
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ORCID iD saved. Loading profile...')),
-      );
-      Navigator.pop(context);
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('ORCID iD saved. Loading profile...')),
+    );
+    Navigator.pop(context);
   }
 
   Future<void> _confirmDisconnect() async {
@@ -279,6 +279,7 @@ class _AcademicSettingsScreenState extends State<AcademicSettingsScreen> {
     );
     if (confirmed == true && mounted) {
       await OrcidAuthService.disconnect();
+      if (!mounted) return;
       context.read<AcademicProfileBloc>().add(const OrcidDisconnectRequested());
       setState(() {
         _isAuthorized = false;

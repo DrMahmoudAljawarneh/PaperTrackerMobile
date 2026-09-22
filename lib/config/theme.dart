@@ -447,6 +447,30 @@ class AppTheme {
         type: BottomNavigationBarType.fixed,
         elevation: 8,
       ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: isDark ? p.surface.withValues(alpha: 0.95) : p.surface,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: p.primary.withValues(alpha: isDark ? 0.22 : 0.15),
+        indicatorShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final isSelected = states.contains(WidgetState.selected);
+          return GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? p.primary : p.textSecondary,
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final isSelected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            size: 22,
+            color: isSelected ? p.primary : p.textSecondary,
+          );
+        }),
+      ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: p.card,
         contentTextStyle: TextStyle(color: p.textPrimary),

@@ -44,7 +44,7 @@ void main() {
     Widget buildScreen({bool dispatchLoad = false}) {
       final paperRepository = MockPaperRepository();
       when(() => paperRepository.getPapers(any()))
-          .thenAnswer((_) => Stream<List<Paper>>.empty());
+          .thenAnswer((_) => const Stream<List<Paper>>.empty());
       return MultiBlocProvider(
         providers: [
           BlocProvider(
@@ -54,7 +54,7 @@ void main() {
             create: (_) => PaperBloc(
               paperRepository: paperRepository,
               statusHistoryRepository: MockStatusHistoryRepository(),
-            )..add(dispatchLoad ? PapersLoadRequested('test-user') : PapersUpdated(const [])),
+            )..add(dispatchLoad ? const PapersLoadRequested('test-user') : const PapersUpdated([])),
           ),
         ],
         child: const MaterialApp(

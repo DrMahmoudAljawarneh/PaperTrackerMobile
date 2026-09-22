@@ -53,7 +53,8 @@ class SemanticScholarService {
       final results = data?['data'] as List?;
       if (results == null || results.isEmpty) return null;
 
-      final authorId = results.first['authorId'];
+      final firstResult = results.first as Map<String, dynamic>?;
+      final authorId = firstResult?['authorId']?.toString();
       if (authorId == null) return null;
 
       final detailResponse = await _dio.get(

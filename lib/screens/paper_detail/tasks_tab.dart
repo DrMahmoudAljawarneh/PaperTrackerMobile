@@ -252,7 +252,7 @@ class _TasksTabState extends State<TasksTab> {
     bool isSearching = false;
     Timer? searchDebounce;
     TaskPriority selectedPriority = task.priority;
-    double _progress = task.progress.toDouble();
+    double currentProgress = task.progress.toDouble();
 
     showModalBottomSheet(
       context: context,
@@ -475,7 +475,7 @@ class _TasksTabState extends State<TasksTab> {
                   ],
                   const SizedBox(height: 12),
                   DropdownButtonFormField<TaskPriority>(
-                    value: selectedPriority,
+                    initialValue: selectedPriority,
                     decoration: const InputDecoration(
                       labelText: 'Priority',
                       border: OutlineInputBorder(),
@@ -513,18 +513,18 @@ class _TasksTabState extends State<TasksTab> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Slider(
-                          value: _progress,
+                          value: currentProgress,
                           min: 0,
                           max: 100,
                           divisions: 20,
-                          label: '${_progress.round()}%',
-                          onChanged: (v) => setSheetState(() => _progress = v),
+                          label: '${currentProgress.round()}%',
+                          onChanged: (v) => setSheetState(() => currentProgress = v),
                         ),
                       ),
                       SizedBox(
                         width: 36,
                         child: Text(
-                          '${_progress.round()}%',
+                          '${currentProgress.round()}%',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -557,7 +557,7 @@ class _TasksTabState extends State<TasksTab> {
                                 assigneeId:
                                     selectedAssignee?.uid ?? task.assigneeId,
                                 priority: selectedPriority.name,
-                                progress: _progress.round(),
+                                progress: currentProgress.round(),
                               ));
                           titleController.dispose();
                           searchDebounce?.cancel();

@@ -41,7 +41,7 @@ void main() {
             .thenAnswer((_) => Stream.value([]));
         return taskBloc;
       },
-      act: (bloc) => bloc.add(TasksLoadRequested('paper1')),
+      act: (bloc) => bloc.add(const TasksLoadRequested('paper1')),
       expect: () => [
         isA<TaskLoading>(),
         isA<TasksLoaded>(),

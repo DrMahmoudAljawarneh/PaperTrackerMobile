@@ -31,15 +31,28 @@ class CrossrefService {
   Future<CrossrefDoiMetadata?> fetchDoi(String doi) async {
     try {
       final response = await _dio.get('/works/$doi');
-      final data = response.data?['message'] as Map<String, dynamic>?;
+      final resMap = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : null;
+      final data = resMap?['message'] as Map<String, dynamic>?;
       if (data == null) return null;
+
+      int year = 0;
+      final pubPrint = data['published-print'] as Map<String, dynamic>?;
+      final dateParts = pubPrint?['date-parts'] as List?;
+      if (dateParts != null && dateParts.isNotEmpty) {
+        final firstDate = dateParts.first as List?;
+        if (firstDate != null && firstDate.isNotEmpty) {
+          year = (firstDate.first as num?)?.toInt() ?? 0;
+        }
+      }
 
       return CrossrefDoiMetadata(
         title: (data['title'] as List?)?.first?.toString() ?? '',
         journal: data['container-title']?.toString() ?? '',
-        year: data['published-print']?['date-parts']?.first?.first ?? 0,
+        year: year,
         doi: doi,
-        citationCount: data['is-referenced-by-count'] ?? 0,
+        citationCount: (data['is-referenced-by-count'] as num?)?.toInt() ?? 0,
       );
     } catch (_) {
       return null;

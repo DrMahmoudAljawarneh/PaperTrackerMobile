@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:paper_tracker/blocs/auth/auth_bloc.dart';
@@ -193,7 +194,7 @@ class _GoRouterRefreshStream extends ChangeNotifier {
     _subscription = stream.listen((_) => notifyListeners());
   }
 
-  late final dynamic _subscription;
+  late final StreamSubscription<dynamic> _subscription;
 
   @override
   void dispose() {

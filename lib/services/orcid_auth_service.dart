@@ -66,7 +66,7 @@ class AuthorizationRequest {
 
 class OrcidAuthService {
   static const _tokenKey = 'orcid_token';
-  static final _secureStorage = const FlutterSecureStorage();
+  static const _secureStorage = FlutterSecureStorage();
 
   static OrcidToken? _cachedToken;
 
@@ -177,7 +177,7 @@ class OrcidAuthService {
 
   static Future<OrcidToken?> _exchangeCode(String code, String codeVerifier) async {
     try {
-      print('DEBUG ORCID: Exchanging code. ClientID: ${OrcidConfig.clientId}, RedirectURI: ${OrcidConfig.redirectUri}');
+      debugPrint('DEBUG ORCID: Exchanging code. ClientID: ${OrcidConfig.clientId}, RedirectURI: ${OrcidConfig.redirectUri}');
       final response = await http.post(
         Uri.parse(OrcidConfig.tokenUrl),
         headers: {'Accept': 'application/json'},
@@ -191,9 +191,9 @@ class OrcidAuthService {
         },
       );
 
-      print('DEBUG ORCID: Exchange response status: ${response.statusCode}');
+      debugPrint('DEBUG ORCID: Exchange response status: ${response.statusCode}');
       if (response.statusCode != 200) {
-        print('DEBUG ORCID: Exchange failed response body: ${response.body}');
+        debugPrint('DEBUG ORCID: Exchange failed response body: ${response.body}');
         return null;
       }
 
@@ -207,8 +207,7 @@ class OrcidAuthService {
         expiresAt: DateTime.now().add(Duration(seconds: expiresIn)),
       );
     } catch (e, s) {
-      print('DEBUG ORCID: Exception during code exchange: $e');
-      print(s);
+      debugPrint('DEBUG ORCID: Exception during code exchange: $e\n$s');
       return null;
     }
   }

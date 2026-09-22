@@ -2,52 +2,81 @@
   "rules": {
     ".read": false,
     ".write": false,
+
     "users": {
       ".read": "auth != null",
       "$userId": {
         ".write": "auth != null && auth.uid == $userId"
       }
     },
+
+    "fcmTokens": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId"
+      }
+    },
+
     "papers": {
       "$paperId": {
         ".read": "auth != null && root.child('papersByUser').child(auth.uid).child($paperId).exists()",
         ".write": "auth != null && (!data.exists() || root.child('papersByUser').child(auth.uid).child($paperId).exists())"
       }
     },
+
     "papersByUser": {
       "$userId": {
         ".read": "auth != null && auth.uid == $userId",
-        ".write": "auth != null && auth.uid == $userId"
+        ".write": "auth != null"
       }
     },
+
     "tasks": {
       "$paperId": {
         ".read": "auth != null && root.child('papersByUser').child(auth.uid).child($paperId).exists()",
         ".write": "auth != null && root.child('papersByUser').child(auth.uid).child($paperId).exists()"
       }
     },
+
     "comments": {
       "$paperId": {
         ".read": "auth != null && root.child('papersByUser').child(auth.uid).child($paperId).exists()",
         ".write": "auth != null && root.child('papersByUser').child(auth.uid).child($paperId).exists()"
       }
     },
+
+    "status_history": {
+      "$paperId": {
+        ".read": "auth != null && root.child('papersByUser').child(auth.uid).child($paperId).exists()",
+        ".write": "auth != null && root.child('papersByUser').child(auth.uid).child($paperId).exists()"
+      }
+    },
+
     "chats": {
       "$chatId": {
-        ".read": "auth != null && (data.child('user1Id').val() == auth.uid || data.child('user2Id').val() == auth.uid)",
-        ".write": "auth != null && (!data.exists() || data.child('user1Id').val() == auth.uid || data.child('user2Id').val() == auth.uid)"
+        ".read": "auth != null && $chatId.contains(auth.uid)",
+        ".write": "auth != null && $chatId.contains(auth.uid)"
       }
     },
-    "chatMessages": {
+
+    "userChats": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null"
+      }
+    },
+
+    "messages": {
       "$chatId": {
-        ".read": "auth != null && root.child('chats').child($chatId).exists() && (root.child('chats').child($chatId).child('user1Id').val() == auth.uid || root.child('chats').child($chatId).child('user2Id').val() == auth.uid)",
-        ".write": "auth != null && root.child('chats').child($chatId).exists() && (root.child('chats').child($chatId).child('user1Id').val() == auth.uid || root.child('chats').child($chatId).child('user2Id').val() == auth.uid)"
+        ".read": "auth != null && $chatId.contains(auth.uid)",
+        ".write": "auth != null && $chatId.contains(auth.uid)"
       }
     },
+
     "notifications": {
       "$userId": {
         ".read": "auth != null && auth.uid == $userId",
-        ".write": "auth != null && auth.uid == $userId"
+        ".write": "auth != null"
       }
     }
   }

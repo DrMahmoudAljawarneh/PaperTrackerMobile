@@ -539,6 +539,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (isConnected) {
       await OrcidAuthService.disconnect();
       await authRepo.updateOrcidId('');
+      if (!mounted) return;
       context.read<AcademicProfileBloc>().add(const OrcidDisconnectRequested());
       setState(() => _orcidId = '');
       if (mounted) {
@@ -731,7 +732,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     Switch(
                       value: enabled,
-                      activeColor: color,
+                      activeThumbColor: color,
                       onChanged: (value) {
                         NotificationPrefs.setEnabled(type, value);
                         setState(() {});

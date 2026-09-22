@@ -17,7 +17,8 @@ class OrcidFunding {
 
   factory OrcidFunding.fromJson(Map<String, dynamic> json) {
     final titleMap = json['title'] as Map<String, dynamic>?;
-    final titleVal = titleMap?['title']?['value']?.toString() ?? '';
+    final innerTitle = titleMap?['title'] as Map<String, dynamic>?;
+    final titleVal = innerTitle?['value']?.toString() ?? '';
 
     final org = json['organization'] as Map<String, dynamic>?;
     final orgName = org?['name']?.toString() ?? '';

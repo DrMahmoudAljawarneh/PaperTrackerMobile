@@ -20,6 +20,7 @@ import 'package:paper_tracker/screens/paper_detail/revisions_tab.dart';
 import 'package:paper_tracker/screens/paper_detail/tasks_tab.dart';
 import 'package:paper_tracker/widgets/deadline_countdown.dart';
 import 'package:paper_tracker/widgets/status_badge.dart';
+import 'package:paper_tracker/widgets/pre_submission_checklist_dialog.dart';
 
 class PaperDetailScreen extends StatefulWidget {
   final String paperId;
@@ -426,15 +427,28 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
                 ? null
                 : () {
                     final authState = context.read<AuthBloc>().state;
-                    if (authState is AuthAuthenticated) {
+                    if (authState is! AuthAuthenticated) return;
+                    final userId = authState.user.uid;
+                    final userName = authState.user.displayName ?? '';
+
+                    void performStatusChange() {
                       context.read<PaperBloc>().add(PaperStatusChanged(
                             paperId: paper.id,
                             newStatus: status,
-                            currentUserId: authState.user.uid,
-                            currentUserName:
-                                authState.user.displayName ?? '',
+                            currentUserId: userId,
+                            currentUserName: userName,
                             paperTitle: paper.title,
                           ));
+                    }
+
+                    if (status == PaperStatus.submitted) {
+                      PreSubmissionChecklistDialog.show(
+                        context,
+                        paper: paper,
+                        onProceedToSubmit: performStatusChange,
+                      );
+                    } else {
+                      performStatusChange();
                     }
                   },
             child: Container(
@@ -599,7 +613,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<SubmissionOutcome>(
-                    value: selectedOutcome,
+                    initialValue: selectedOutcome,
                     decoration: const InputDecoration(
                       labelText: 'Outcome',
                       border: OutlineInputBorder(),
@@ -659,6 +673,7 @@ class _PaperDetailScreenState extends State<PaperDetailScreen>
     );
 
     if (result == true) {
+      if (!mounted) return;
       final newSubmission = SubmissionEntry(
         venueName: venueController.text.trim(),
         submissionDate: selectedDate,

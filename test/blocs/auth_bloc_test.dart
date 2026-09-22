@@ -67,7 +67,7 @@ void main() {
             .thenAnswer((_) async => mockUser);
         return authBloc;
       },
-      act: (bloc) => bloc.add(AuthLoginRequested(
+      act: (bloc) => bloc.add(const AuthLoginRequested(
         email: 'test@example.com',
         password: 'password',
       )),
@@ -81,7 +81,7 @@ void main() {
             .thenThrow(Exception('user-not-found'));
         return authBloc;
       },
-      act: (bloc) => bloc.add(AuthLoginRequested(
+      act: (bloc) => bloc.add(const AuthLoginRequested(
         email: 'missing@example.com',
         password: 'password',
       )),
@@ -98,7 +98,7 @@ void main() {
             .thenAnswer((_) async => mockUser);
         return authBloc;
       },
-      act: (bloc) => bloc.add(AuthRegisterRequested(
+      act: (bloc) => bloc.add(const AuthRegisterRequested(
         email: 'new@example.com',
         password: 'password',
         displayName: 'New User',
@@ -123,7 +123,7 @@ void main() {
             .thenThrow(Exception('wrong-password'));
         return authBloc;
       },
-      act: (bloc) => bloc.add(AuthLoginRequested(
+      act: (bloc) => bloc.add(const AuthLoginRequested(
         email: 'test@example.com',
         password: 'wrong',
       )),

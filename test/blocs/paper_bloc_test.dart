@@ -76,7 +76,7 @@ void main() {
             .thenAnswer((_) => Stream.value(papers));
         return paperBloc;
       },
-      act: (bloc) => bloc.add(PapersLoadRequested('uid1')),
+      act: (bloc) => bloc.add(const PapersLoadRequested('uid1')),
       expect: () => [
         isA<PaperLoading>(),
         isA<PapersLoaded>(),

@@ -43,7 +43,7 @@ void main() {
             .thenAnswer((_) async {});
         return chatDetailBloc;
       },
-      act: (bloc) => bloc.add(LoadChatMessages('chat1', 'uid1')),
+      act: (bloc) => bloc.add(const LoadChatMessages('chat1', 'uid1')),
       expect: () => [
         isA<ChatDetailLoading>(),
         isA<ChatDetailLoaded>(),
@@ -57,7 +57,7 @@ void main() {
             .thenAnswer((_) async {});
         return chatDetailBloc;
       },
-      act: (bloc) => bloc.add(SendMessage(
+      act: (bloc) => bloc.add(const SendMessage(
         chatId: 'chat1',
         senderId: 'uid1',
         text: 'Hello!',
@@ -72,7 +72,7 @@ void main() {
             .thenThrow(Exception('Send failed'));
         return chatDetailBloc;
       },
-      act: (bloc) => bloc.add(SendMessage(
+      act: (bloc) => bloc.add(const SendMessage(
         chatId: 'chat1',
         senderId: 'uid1',
         text: 'Hello!',

@@ -124,9 +124,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   formatButtonVisible: true,
                   titleCentered: true,
                 ),
-                calendarStyle: CalendarStyle(
+                calendarStyle: const CalendarStyle(
                   outsideDaysVisible: false,
-                  markerDecoration: const BoxDecoration(),
+                  markerDecoration: BoxDecoration(),
                 ),
               ),
               const Divider(height: 1),

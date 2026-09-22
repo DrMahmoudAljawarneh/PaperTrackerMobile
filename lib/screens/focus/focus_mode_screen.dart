@@ -13,6 +13,7 @@ import 'package:paper_tracker/config/theme.dart';
 import 'package:paper_tracker/models/paper.dart';
 import 'package:paper_tracker/repositories/chat_repository.dart';
 import 'package:paper_tracker/widgets/live_sync_badge.dart';
+import 'package:paper_tracker/widgets/pomodoro_timer_widget.dart';
 
 class FocusModeScreen extends StatefulWidget {
   final String paperId;
@@ -139,7 +140,7 @@ class _FocusModeScreenState extends State<FocusModeScreen> {
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
                         isExpanded: true,
-                        value: selectedAssignee,
+                        initialValue: selectedAssignee,
                         dropdownColor: Theme.of(context).cardColor,
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
@@ -315,6 +316,10 @@ class _FocusModeScreenState extends State<FocusModeScreen> {
               children: [
                 // Team Focus Banner Card
                 _buildTeamFocusBanner(paper, userId, userName),
+                const SizedBox(height: 20),
+
+                // Ambient Pomodoro Deep Work Timer
+                const PomodoroTimerWidget(),
                 const SizedBox(height: 20),
 
                 // Quick Action Hub (Overleaf / PDF / Next Step)

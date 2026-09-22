@@ -179,17 +179,29 @@ class DashboardBloc extends HydratedBloc<DashboardEvent, DashboardState> {
           submittedPapers: data['submittedPapers'] as int,
           publishedPapers: data['publishedPapers'] as int,
           upcomingDeadlines: (data['upcomingDeadlines'] as List)
-              .map((p) => Paper.fromMap(p['id'], p as Map<String, dynamic>))
+              .map((p) {
+                final m = p as Map<String, dynamic>;
+                return Paper.fromMap(m['id'] as String? ?? '', m);
+              })
               .toList(),
           recentPapers: (data['recentPapers'] as List)
-              .map((p) => Paper.fromMap(p['id'], p as Map<String, dynamic>))
+              .map((p) {
+                final m = p as Map<String, dynamic>;
+                return Paper.fromMap(m['id'] as String? ?? '', m);
+              })
               .toList(),
           statusDistribution: distMap,
           papersNeedingAttention: (data['papersNeedingAttention'] as List)
-              .map((p) => Paper.fromMap(p['id'], p as Map<String, dynamic>))
+              .map((p) {
+                final m = p as Map<String, dynamic>;
+                return Paper.fromMap(m['id'] as String? ?? '', m);
+              })
               .toList(),
           myAssignedPapers: (data['myAssignedPapers'] as List)
-              .map((p) => Paper.fromMap(p['id'], p as Map<String, dynamic>))
+              .map((p) {
+                final m = p as Map<String, dynamic>;
+                return Paper.fromMap(m['id'] as String? ?? '', m);
+              })
               .toList(),
         );
       }

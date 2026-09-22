@@ -30,9 +30,13 @@ class OpenAlexService {
       final response = await _dio.get('/authors', queryParameters: {
         'filter': 'orcid:$orcidId',
       });
-      final results = response.data?['results'] as List?;
+      final resMap = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : null;
+      final results = resMap?['results'] as List?;
       if (results != null && results.isNotEmpty) {
-        return results.first['id']?.toString();
+        final firstResult = results.first as Map<String, dynamic>?;
+        return firstResult?['id']?.toString();
       }
       return null;
     } catch (_) {
@@ -47,11 +51,16 @@ class OpenAlexService {
       if (data == null) return const OpenAlexAuthorMetrics();
 
       final summary = data['summary_stats'] as Map<String, dynamic>?;
+      final works = (data['works_count'] as num?)?.toInt() ?? 0;
+      final citedBy = (data['cited_by_count'] as num?)?.toInt() ?? 0;
+      final h = (summary?['h_index'] as num?)?.toDouble() ?? 0.0;
+      final i10 = (summary?['i10_index'] as num?)?.toDouble() ?? 0.0;
+
       return OpenAlexAuthorMetrics(
-        worksCount: data['works_count'] ?? 0,
-        citedByCount: data['cited_by_count'] ?? 0,
-        hIndex: (summary?['h_index'] ?? 0).toDouble(),
-        i10Index: (summary?['i10_index'] ?? 0).toDouble(),
+        worksCount: works,
+        citedByCount: citedBy,
+        hIndex: h,
+        i10Index: i10,
       );
     } catch (_) {
       return const OpenAlexAuthorMetrics();

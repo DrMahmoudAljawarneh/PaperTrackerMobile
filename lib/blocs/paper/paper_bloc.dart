@@ -170,7 +170,10 @@ class PaperBloc extends HydratedBloc<PaperEvent, PaperState> {
       if (json['type'] == 'PapersLoaded') {
         final data = json['data'] as List;
         return PapersLoaded(
-          data.map((p) => Paper.fromMap(p['id'], p as Map<String, dynamic>)).toList(),
+          data.map((p) {
+            final m = p as Map<String, dynamic>;
+            return Paper.fromMap(m['id'] as String? ?? '', m);
+          }).toList(),
         );
       }
       return null;

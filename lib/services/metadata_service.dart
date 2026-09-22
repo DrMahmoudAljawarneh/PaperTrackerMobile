@@ -44,20 +44,29 @@ class MetadataService {
 
       final title = (message['title'] as List?)?.first?.toString() ?? '';
       final authors = (message['author'] as List?)
-              ?.map((a) =>
-                  '${a['given'] ?? ''} ${a['family'] ?? ''}'.trim())
+              ?.map((a) {
+                final authorMap = a as Map<String, dynamic>?;
+                final given = authorMap?['given']?.toString() ?? '';
+                final family = authorMap?['family']?.toString() ?? '';
+                return '$given $family'.trim();
+              })
               .where((n) => n.isNotEmpty)
               .toList() ??
           [];
       final abstract = message['abstract']?.toString();
       final venue =
           (message['container-title'] as List?)?.first?.toString();
-      final dateParts =
-          message['published-print']?['date-parts']?.first as List?;
+      final pubPrint = message['published-print'] as Map<String, dynamic>?;
+      final datePartsGroup = pubPrint?['date-parts'] as List?;
+      final dateParts = datePartsGroup?.first as List?;
       DateTime? publishedDate;
       if (dateParts != null && dateParts.length >= 3) {
-        publishedDate =
-            DateTime(dateParts[0], dateParts[1], dateParts[2]);
+        final y = (dateParts[0] as num?)?.toInt();
+        final m = (dateParts[1] as num?)?.toInt();
+        final d = (dateParts[2] as num?)?.toInt();
+        if (y != null && m != null && d != null) {
+          publishedDate = DateTime(y, m, d);
+        }
       }
 
       return PaperMetadata(

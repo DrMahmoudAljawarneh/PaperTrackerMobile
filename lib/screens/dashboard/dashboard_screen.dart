@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -131,78 +132,155 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildDashboard(DashboardLoaded state) {
-    return RefreshIndicator(
-      onRefresh: () async => _loadDashboard(),
-      child: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        children: [
-          // Greeting
-          _buildGreeting(),
-          const SizedBox(height: 24),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 900;
+        return RefreshIndicator(
+          onRefresh: () async => _loadDashboard(),
+          child: isWide
+              ? _buildWideDashboard(state)
+              : _buildNarrowDashboard(state),
+        );
+      },
+    );
+  }
 
-          // Stats Cards with gradient
-          _buildStatsGrid(state),
-          const SizedBox(height: 24),
-
-          // My Assigned Focus Spotlight Section
-          if (state.myAssignedPapers.isNotEmpty) ...[
-            _buildSectionHeader('My Assigned Focus', Icons.stars_rounded),
-            const SizedBox(height: 12),
-            _buildAssignedFocusSection(state.myAssignedPapers),
-            const SizedBox(height: 24),
-          ],
-
-          // Status Distribution Bar
-          if (state.statusDistribution.isNotEmpty) ...[
-            _buildSectionHeader('Paper Pipeline', Icons.analytics_outlined),
-            const SizedBox(height: 12),
-            _buildStatusDistribution(state),
-            const SizedBox(height: 24),
-          ],
-
-          // Needs Attention
-          if (state.papersNeedingAttention.isNotEmpty) ...[
-            _buildSectionHeader('Needs Attention', Icons.warning_amber_rounded),
-            const SizedBox(height: 12),
-            ...state.papersNeedingAttention.take(3).map(_buildAttentionItem),
-            const SizedBox(height: 24),
-          ],
-
-          // Quick Actions
-          _buildQuickActions(),
-          const SizedBox(height: 24),
-
-          // Upcoming Deadlines
-          _buildSectionHeader('Upcoming Deadlines', Icons.schedule),
+  Widget _buildNarrowDashboard(DashboardLoaded state) {
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      children: [
+        _buildGreeting(),
+        const SizedBox(height: 24),
+        _buildStatsGrid(state),
+        const SizedBox(height: 24),
+        if (state.myAssignedPapers.isNotEmpty) ...[
+          _buildSectionHeader('My Assigned Focus', Icons.stars_rounded),
           const SizedBox(height: 12),
-          if (state.upcomingDeadlines.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'No upcoming deadlines 🎉',
-                style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
-              ),
-            )
-          else
-            ...state.upcomingDeadlines.map(_buildDeadlineItem),
+          _buildAssignedFocusSection(state.myAssignedPapers),
           const SizedBox(height: 24),
-
-          // Recent Papers
-          _buildSectionHeader('Recent Activity', Icons.history),
-          const SizedBox(height: 12),
-          if (state.recentPapers.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'No papers yet. Create your first one!',
-                style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
-              ),
-            )
-          else
-            ...state.recentPapers.map(_buildRecentPaperItem),
-          const SizedBox(height: 80),
         ],
-      ),
+        if (state.statusDistribution.isNotEmpty) ...[
+          _buildSectionHeader('Paper Pipeline', Icons.analytics_outlined),
+          const SizedBox(height: 12),
+          _buildStatusDistribution(state),
+          const SizedBox(height: 24),
+        ],
+        if (state.papersNeedingAttention.isNotEmpty) ...[
+          _buildSectionHeader('Needs Attention', Icons.warning_amber_rounded),
+          const SizedBox(height: 12),
+          ...state.papersNeedingAttention.take(3).map(_buildAttentionItem),
+          const SizedBox(height: 24),
+        ],
+        _buildQuickActions(),
+        const SizedBox(height: 24),
+        _buildSectionHeader('Upcoming Deadlines', Icons.schedule),
+        const SizedBox(height: 12),
+        if (state.upcomingDeadlines.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'No upcoming deadlines 🎉',
+              style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
+            ),
+          )
+        else
+          ...state.upcomingDeadlines.map(_buildDeadlineItem),
+        const SizedBox(height: 24),
+        _buildSectionHeader('Recent Activity', Icons.history),
+        const SizedBox(height: 12),
+        if (state.recentPapers.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'No papers yet. Create your first one!',
+              style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
+            ),
+          )
+        else
+          ...state.recentPapers.map(_buildRecentPaperItem),
+        const SizedBox(height: 80),
+      ],
+    );
+  }
+
+  Widget _buildWideDashboard(DashboardLoaded state) {
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+      children: [
+        _buildGreeting(),
+        const SizedBox(height: 24),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Left Column (Metrics, Pipeline, Quick Actions)
+            Expanded(
+              flex: 6,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildStatsGrid(state),
+                  const SizedBox(height: 24),
+                  if (state.statusDistribution.isNotEmpty) ...[
+                    _buildSectionHeader('Paper Pipeline', Icons.analytics_outlined),
+                    const SizedBox(height: 12),
+                    _buildStatusDistribution(state),
+                    const SizedBox(height: 24),
+                  ],
+                  _buildQuickActions(),
+                  const SizedBox(height: 24),
+                  _buildSectionHeader('Recent Activity', Icons.history),
+                  const SizedBox(height: 12),
+                  if (state.recentPapers.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Text(
+                        'No papers yet. Create your first one!',
+                        style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
+                      ),
+                    )
+                  else
+                    ...state.recentPapers.map(_buildRecentPaperItem),
+                ],
+              ),
+            ),
+            const SizedBox(width: 24),
+            // Right Column (Assigned Focus, Needs Attention, Deadlines)
+            Expanded(
+              flex: 5,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (state.myAssignedPapers.isNotEmpty) ...[
+                    _buildSectionHeader('My Assigned Focus', Icons.stars_rounded),
+                    const SizedBox(height: 12),
+                    _buildAssignedFocusSection(state.myAssignedPapers),
+                    const SizedBox(height: 24),
+                  ],
+                  if (state.papersNeedingAttention.isNotEmpty) ...[
+                    _buildSectionHeader('Needs Attention', Icons.warning_amber_rounded),
+                    const SizedBox(height: 12),
+                    ...state.papersNeedingAttention.take(3).map(_buildAttentionItem),
+                    const SizedBox(height: 24),
+                  ],
+                  _buildSectionHeader('Upcoming Deadlines', Icons.schedule),
+                  const SizedBox(height: 12),
+                  if (state.upcomingDeadlines.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Text(
+                        'No upcoming deadlines 🎉',
+                        style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color),
+                      ),
+                    )
+                  else
+                    ...state.upcomingDeadlines.map(_buildDeadlineItem),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 80),
+      ],
     );
   }
 
@@ -566,18 +644,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         children: [
-          // Stacked bar
+          // Stacked bar (interactive slices)
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: SizedBox(
-              height: 12,
+              height: 14,
               child: Row(
                 children: state.statusDistribution.entries.map((entry) {
                   final fraction = entry.value / total;
                   return Expanded(
                     flex: (fraction * 1000).round().clamp(1, 1000),
-                    child: Container(
-                      color: statusColors[entry.key] ?? AppTheme.textMuted,
+                    child: Tooltip(
+                      message: '${entry.key.label}: ${entry.value} papers (Click to view)',
+                      child: InkWell(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          context.push('/papers', extra: {entry.key});
+                        },
+                        child: Container(
+                          color: statusColors[entry.key] ?? AppTheme.textMuted,
+                        ),
+                      ),
                     ),
                   );
                 }).toList(),
@@ -585,31 +672,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          // Legend
+          // Legend (interactive chips)
           Wrap(
             spacing: 12,
-            runSpacing: 6,
+            runSpacing: 8,
             children: state.statusDistribution.entries.map((entry) {
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: statusColors[entry.key] ?? AppTheme.textMuted,
-                      shape: BoxShape.circle,
-                    ),
+              final color = statusColors[entry.key] ?? AppTheme.textMuted;
+              return InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.push('/papers', extra: {entry.key});
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        '${entry.key.label} (${entry.value})',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textMuted,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${entry.key.label} (${entry.value})',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppTheme.textMuted,
-                    ),
-                  ),
-                ],
+                ),
               );
             }).toList(),
           ),
@@ -892,11 +991,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: Row(
+              title: const Row(
                 children: [
-                  const Icon(Icons.swap_horiz_rounded, color: AppTheme.primaryColor),
-                  const SizedBox(width: 8),
-                  const Text('Pass Paper Turn'),
+                  Icon(Icons.swap_horiz_rounded, color: AppTheme.primaryColor),
+                  SizedBox(width: 8),
+                  Text('Pass Paper Turn'),
                 ],
               ),
               content: Column(

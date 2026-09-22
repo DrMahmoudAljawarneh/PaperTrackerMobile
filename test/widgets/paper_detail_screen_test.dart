@@ -69,7 +69,7 @@ void main() {
       final streamController = StreamController<Paper?>();
       addTearDown(streamController.close);
       when(() => paperRepository.getPapers(any()))
-          .thenAnswer((_) => Stream<List<Paper>>.empty());
+          .thenAnswer((_) => const Stream<List<Paper>>.empty());
       when(() => paperRepository.streamPaper(any()))
           .thenAnswer((_) => streamController.stream);
 
@@ -81,7 +81,7 @@ void main() {
               create: (_) => PaperBloc(
                 paperRepository: paperRepository,
                 statusHistoryRepository: MockStatusHistoryRepository(),
-              )..add(PapersLoadRequested('test-user')),
+              )..add(const PapersLoadRequested('test-user')),
             ),
           ],
           child: const MaterialApp(

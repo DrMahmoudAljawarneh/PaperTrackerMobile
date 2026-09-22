@@ -8,6 +8,11 @@ import 'package:paper_tracker/blocs/chat_detail/chat_detail_bloc.dart';
 import 'package:paper_tracker/blocs/chat_detail/chat_detail_event.dart';
 import 'package:paper_tracker/blocs/chat_detail/chat_detail_state.dart';
 import 'package:paper_tracker/models/chat_message.dart';
+import 'package:paper_tracker/models/paper.dart';
+import 'package:paper_tracker/blocs/paper/paper_bloc.dart';
+import 'package:paper_tracker/blocs/paper/paper_state.dart';
+import 'package:paper_tracker/config/theme.dart';
+import 'package:paper_tracker/widgets/status_badge.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   final String chatId;
@@ -22,6 +27,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final TextEditingController _messageController = TextEditingController();
   late String currentUserId;
   final ScrollController _scrollController = ScrollController();
+  Paper? _pinnedPaper;
 
   @override
   void initState() {
@@ -56,6 +62,55 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _messageController.clear();
   }
 
+  void _showPinPaperDialog() {
+    final paperState = context.read<PaperBloc>().state;
+    if (paperState is! PapersLoaded || paperState.papers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No papers available to link.')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Link Paper to Conversation'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: paperState.papers.length,
+            itemBuilder: (ctx, i) {
+              final paper = paperState.papers[i];
+              return ListTile(
+                leading: StatusBadge(status: paper.status),
+                title: Text(paper.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                onTap: () {
+                  setState(() => _pinnedPaper = paper);
+                  Navigator.pop(ctx);
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          if (_pinnedPaper != null)
+            TextButton(
+              onPressed: () {
+                setState(() => _pinnedPaper = null);
+                Navigator.pop(ctx);
+              },
+              child: const Text('Unlink Paper', style: TextStyle(color: Colors.red)),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -65,9 +120,58 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _pinnedPaper != null ? Icons.bookmark_added_rounded : Icons.bookmark_border_rounded,
+              color: _pinnedPaper != null ? AppTheme.primaryColor : null,
+            ),
+            tooltip: _pinnedPaper != null ? 'Linked: ${_pinnedPaper!.title}' : 'Link a Paper',
+            onPressed: _showPinPaperDialog,
+          ),
+        ],
       ),
       body: Column(
         children: [
+          if (_pinnedPaper != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                border: Border(
+                  bottom: BorderSide(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.25),
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.article_rounded, size: 18, color: AppTheme.primaryColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _pinnedPaper!.title,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'Status: ${_pinnedPaper!.status.label} • Tap to view workspace',
+                          style: const TextStyle(fontSize: 10, color: AppTheme.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => context.push('/papers/focus/${_pinnedPaper!.id}'),
+                    child: const Text('Open Focus', style: TextStyle(fontSize: 11)),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: BlocBuilder<ChatDetailBloc, ChatDetailState>(
               builder: (context, state) {

@@ -35,7 +35,7 @@ void main() {
             .thenAnswer((_) => Stream.value([]));
         return chatListBloc;
       },
-      act: (bloc) => bloc.add(LoadChatsRequested('uid1')),
+      act: (bloc) => bloc.add(const LoadChatsRequested('uid1')),
       expect: () => [
         isA<ChatListLoading>(),
         isA<ChatListLoaded>(),
@@ -59,7 +59,7 @@ void main() {
             ));
         return chatListBloc;
       },
-      act: (bloc) => bloc.add(CreateChatRequested(
+      act: (bloc) => bloc.add(const CreateChatRequested(
         currentUserId: 'uid1',
         otherUserId: 'uid2',
         currentUserName: 'Alice',
@@ -79,7 +79,7 @@ void main() {
             )).thenThrow(Exception('Failed'));
         return chatListBloc;
       },
-      act: (bloc) => bloc.add(CreateChatRequested(
+      act: (bloc) => bloc.add(const CreateChatRequested(
         currentUserId: 'uid1',
         otherUserId: 'uid2',
         currentUserName: 'Alice',
